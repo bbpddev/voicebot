@@ -29,6 +29,9 @@ XAI_API_KEY = os.environ.get("XAI_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 XAI_REALTIME_URL = "wss://api.x.ai/v1/realtime"
 
+# OpenAI async client (replaces emergentintegrations)
+openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
 # --- MongoDB ---
 mongo_client = AsyncIOMotorClient(MONGO_URL)
 db = mongo_client[DB_NAME]
