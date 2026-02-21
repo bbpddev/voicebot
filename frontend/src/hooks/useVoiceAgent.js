@@ -326,6 +326,8 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   };
 
   const disconnect = useCallback(() => {
+    shouldAutoReconnectRef.current = false; // User explicitly ended — no auto-reconnect
+    preserveTranscriptRef.current = false;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
