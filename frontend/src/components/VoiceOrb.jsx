@@ -20,7 +20,7 @@ const STATUS_CONFIG = {
     animation: 'spin-slow',
   },
   active: {
-    label: 'LISTENING',
+    label: 'CONNECTED',
     color: '#00F0FF',
     glowColor: 'rgba(0,240,255,0.4)',
     ringColor: 'rgba(0,240,255,0.15)',
