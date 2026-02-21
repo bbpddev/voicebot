@@ -1,0 +1,7 @@
+/* App.css - Additional component styles */
+
+.glass-panel {
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.9) 0%, rgba(5, 5, 5, 0.95) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}

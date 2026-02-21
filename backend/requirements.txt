@@ -1,0 +1,12 @@
+fastapi==0.115.6
+uvicorn==0.34.0
+motor==3.7.0
+pymongo==4.11.2
+python-dotenv==1.0.1
+pydantic==2.10.6
+python-multipart==0.0.20
+websockets==14.2
+httpx==0.28.1
+emergentintegrations
+pdfplumber==0.11.9
+python-docx==1.2.0

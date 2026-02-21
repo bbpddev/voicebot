@@ -1,0 +1,130 @@
+{
+  "design_system": {
+    "name": "Sci-Fi Command Center",
+    "theme": "dark",
+    "emotional_archetype": "Electric & Neon",
+    "description": "A high-contrast, futuristic interface designed for IT professionals. It combines the utility of a tactical dashboard with the immersion of a sci-fi command deck. The voice agent is the hero, represented by a living, pulsing energy orb."
+  },
+  "typography": {
+    "font_family": {
+      "heading": "Orbitron, sans-serif",
+      "subheading": "Rajdhani, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-5xl md:text-7xl font-bold tracking-tight uppercase",
+      "h2": "text-3xl md:text-5xl font-bold tracking-tight uppercase",
+      "h3": "text-2xl md:text-3xl font-semibold tracking-wide",
+      "body": "text-base leading-relaxed text-gray-300",
+      "caption": "text-xs font-mono uppercase tracking-widest text-cyan-400/80"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap');"
+    ]
+  },
+  "colors": {
+    "palette": {
+      "background": "#050505",
+      "surface": "#0A0A0A",
+      "surface_highlight": "#121212",
+      "primary": "#00F0FF",
+      "primary_glow": "rgba(0, 240, 255, 0.5)",
+      "secondary": "#7000FF",
+      "accent": "#FF003C",
+      "success": "#00FF94",
+      "warning": "#FFD600",
+      "text_primary": "#FFFFFF",
+      "text_secondary": "#9CA3AF",
+      "border": "rgba(0, 240, 255, 0.15)"
+    },
+    "gradients": {
+      "hero_glow": "radial-gradient(circle at center, rgba(0, 240, 255, 0.15) 0%, rgba(5, 5, 5, 0) 70%)",
+      "card_surface": "linear-gradient(180deg, rgba(10, 10, 10, 0.9) 0%, rgba(5, 5, 5, 0.95) 100%)",
+      "active_border": "linear-gradient(90deg, #00F0FF, #7000FF)"
+    }
+  },
+  "layout_strategies": {
+    "grid_system": "Bento Grid - Asymmetrical, modular panels floating in void space.",
+    "container_style": "Glassmorphism with technical borders. Use 'backdrop-blur-xl' and 'border-white/10' or 'border-cyan-500/20'.",
+    "spacing": "Generous. Use 'p-6' or 'p-8' inside cards. Gap 'gap-6' between modules.",
+    "visual_decorations": [
+      "Scanlines overlay (opacity 0.02)",
+      "Corner accents (SVG brackets at corners of panels)",
+      "Glowing noise texture in background"
+    ]
+  },
+  "components": {
+    "VoiceOrb": {
+      "description": "The central interaction point. A CSS/Framer Motion animated sphere/orb.",
+      "states": {
+        "idle": "Slow breathing animation (scale 1 to 1.05), soft blue glow.",
+        "listening": "Fast ripple effect, expanding outward rings. Color shifts to intense Cyan.",
+        "processing": "Rapid rotation or indeterminate spinner. Color shifts to Purple.",
+        "speaking": "Audio visualizer bars or waveform modulation. Color shifts to Green or dynamic gradient."
+      },
+      "interaction": "Click to toggle listening. Must have a large 'hit area'."
+    },
+    "TicketPanel": {
+      "style": "HUD-style list. Each ticket is a row with a 'status pill' that glows.",
+      "visuals": "Use 'font-mono' for IDs. Status badges should use 'shadow-[0_0_10px_currentColor]'."
+    },
+    "TranscriptFeed": {
+      "style": "Terminal-like scrolling feed. User text aligned right (Cyan), AI text aligned left (White/Gray).",
+      "typography": "JetBrains Mono",
+      "animation": "Typewriter effect for new AI responses."
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "transitions": {
+      "default": "type: 'spring', stiffness: 300, damping: 30",
+      "slow_hover": "duration: 0.3, ease: 'easeOut'"
+    },
+    "entrance": {
+      "stagger": 0.1,
+      "variant": "Fade up with slight scale (0.95 -> 1)"
+    }
+  },
+  "image_urls": {
+    "background_texture": {
+      "url": "https://images.unsplash.com/photo-1770885653473-ca48b4d69173",
+      "description": "Abstract flowing dark blue texture for subtle background overlay (low opacity).",
+      "usage": "Global background overlay with mix-blend-mode: overlay"
+    },
+    "hero_orb_reference": {
+      "url": "https://images.unsplash.com/photo-1761652661873-a08d8cb25b66",
+      "description": "Visual reference for the central orb glow and color.",
+      "usage": "Reference only / Fallback hero"
+    },
+    "server_room": {
+      "url": "https://images.pexels.com/photos/5480781/pexels-photo-5480781.jpeg",
+      "description": "Modern server room.",
+      "usage": "Login page background or KB section header"
+    }
+  },
+  "universal_guidelines": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts. Use asymmetrical grids.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "MUST NOT apply universal transition (transition: all).",
+    "MUST NOT center align the app container text-align: center.",
+    "Always use modern button styles (pill-shaped or sharp technical).",
+    "NEVER use AI assistant Emoji characters (🤖, 🧠, etc.).",
+    "Every interaction needs micro-animations.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Subtle grain textures and noise overlays are mandatory.",
+    "All interactive elements MUST include data-testid attribute.",
+    "Use 'sonner' for toasts.",
+    "Components MUST use named exports."
+  ],
+  "instructions_to_main_agent": [
+    "1. SCAFFOLD: Set up Tailwind with the custom colors and fonts defined above.",
+    "2. ORB: Build the 'VoiceOrb' component first. It is the heart of the app. Make it feel 'alive'.",
+    "3. LAYOUT: Create a 'DashboardLayout' that positions the Orb centrally (or top-center) and uses a CSS Grid for the flanking panels (Tickets, KB).",
+    "4. VISUALS: Add a global 'noise' overlay to the body to prevent banding on the dark background.",
+    "5. DATA: Mock the ticket data with 'tech' sounding issues (e.g., 'Mainframe Uplink Error', 'Quantum Node Desync').",
+    "6. MICRO-INTERACTIONS: Add hover states to every interactive element. Buttons should glow or have a 'glitch' effect on hover."
+  ]
+}
