@@ -193,15 +193,15 @@ export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
         {status === 'idle' || status === 'error'
           ? isIframe
             ? 'Open in new tab for voice access'
-            : 'Click orb to activate voice agent'
+            : 'Click orb to start a call'
           : status === 'connecting'
           ? 'Establishing secure connection...'
           : status === 'active'
-          ? 'Speak naturally — I am listening'
+          ? 'Listening — speak freely, click orb to end'
           : status === 'listening'
           ? 'Voice detected — processing...'
           : status === 'speaking'
-          ? 'Rex is responding...'
+          ? 'Agent responding — stay on the line...'
           : status === 'processing'
           ? 'Executing request...'
           : ''}
