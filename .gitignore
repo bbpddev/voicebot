@@ -1,36 +1,29 @@
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+# Dependencies
+frontend/node_modules/
+node_modules/
+backend/__pycache__/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Environment variables
+backend/.env
+frontend/.env
+.env
+
+# Build
+frontend/build/
+
+# Logs
+*.log
+
+# Test reports
+test_reports/
+
+# Python env
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
