@@ -81,6 +81,24 @@ export function TranscriptFeed({ transcript, currentAiText }) {
   );
 }
 
+// --- System / reconnect divider ---
+function SystemMessage({ msg }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex items-center gap-2 py-1"
+      data-testid="transcript-msg-system"
+    >
+      <div className="flex-1 h-px" style={{ background: 'rgba(255,214,0,0.15)' }} />
+      <span className="font-mono text-yellow-500/60 uppercase tracking-widest" style={{ fontSize: '9px' }}>
+        {msg.text}
+      </span>
+      <div className="flex-1 h-px" style={{ background: 'rgba(255,214,0,0.15)' }} />
+    </motion.div>
+  );
+}
+
 // --- User bubble ---
 function UserMessage({ msg }) {
   return (
