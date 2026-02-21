@@ -97,7 +97,7 @@ app.add_middleware(
 
 
 # --- System Prompt (default, overridable via admin) ---
-DEFAULT_SYSTEM_PROMPT = """You are Rex, an advanced AI-powered IT Service Desk assistant. You are professional, efficient, and helpful.
+DEFAULT_SYSTEM_PROMPT = """You are ChatIt, an advanced AI-powered IT Service Desk assistant. You are professional, efficient, and helpful.
 
 YOUR CAPABILITIES:
 1. TROUBLESHOOT technical issues - provide step-by-step solutions using the knowledge base
@@ -281,8 +281,8 @@ async def handle_search_knowledge_base(args: dict) -> dict:
         completion = await openai_client.chat.completions.create(
             model="gpt-4.1",
             messages=[
-                {"role": "system", "content": "You are an IT support assistant. Summarize KB articles into a concise voice-friendly troubleshooting response. Maximum 5 sentences."},
-                {"role": "user", "content": f"User query: {query}\n\nKB Articles:\n{articles_text}\n\nProvide a concise troubleshooting response suitable for voice (max 5 sentences)."},
+                {"role": "system", "content": "You are an IT support assistant. Summarize KB articles into a concise voice-friendly troubleshooting response. Use simple spoken language. Give step-by-step guidance Do not include unnecessary detail. Maximum 5 sentences."},
+                {"role": "user", "content": f"User query: {query}\n\nKB Articles:\n{articles_text}\n\nProvide a concise troubleshooting response suitable for voice.Use simple spoken language. Give step-by-step guidance Do not include unnecessary detail (max 5 sentences)."},
             ],
             max_tokens=300,
         )
