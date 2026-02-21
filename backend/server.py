@@ -279,7 +279,7 @@ async def handle_search_knowledge_base(args: dict) -> dict:
     try:
         articles_text = "\n\n".join([f"Title: {a['title']}\n{a['content'][:800]}" for a in articles])
         completion = await openai_client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model="gpt-4.1",
             messages=[
                 {"role": "system", "content": "You are an IT support assistant. Summarize KB articles into a concise voice-friendly troubleshooting response. Maximum 3 sentences."},
                 {"role": "user", "content": f"User query: {query}\n\nKB Articles:\n{articles_text}\n\nProvide a concise troubleshooting response suitable for voice (max 3 sentences)."},
@@ -647,7 +647,7 @@ async def upload_kb_document(file: UploadFile = File(...)):
     # Use GPT-4.1 to structure the document into KB articles
     try:
         completion = await openai_client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model="gpt-4.1",
             messages=[
                 {"role": "system", "content": "You are an IT knowledge base manager. Extract and structure IT troubleshooting information from documents into KB articles."},
                 {"role": "user", "content": f"""Document: {filename}
