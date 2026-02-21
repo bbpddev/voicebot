@@ -99,8 +99,18 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     if (statusRef.current !== 'idle' && statusRef.current !== 'error') return;
     setError(null);
     updateStatus('connecting');
-    setTranscript([]);
+
+    // On fresh user-initiated call: clear history. On auto-reconnect: preserve it.
+    if (!preserveTranscriptRef.current) {
+      setTranscript([]);
+    } else {
+      // Show a small reconnecting divider in the transcript
+      setTranscript(prev => [...prev, { role: 'system', text: 'Reconnecting...', time: Date.now() }]);
+      preserveTranscriptRef.current = false;
+    }
     aiTextRef.current = '';
+    setCurrentAiText('');
+    shouldAutoReconnectRef.current = true; // Enable auto-reconnect for this session
 
     try {
       // Audio contexts
@@ -118,15 +128,28 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
       };
 
       ws.onerror = () => {
+        shouldAutoReconnectRef.current = false;
         setError('Connection failed. Check your API keys and try again.');
         updateStatus('error');
       };
 
       ws.onclose = () => {
-        if (statusRef.current !== 'idle') {
-          updateStatus('idle');
-        }
+        const wasActive = statusRef.current !== 'idle' && statusRef.current !== 'error';
         stopMicCapture();
+
+        if (wasActive && shouldAutoReconnectRef.current) {
+          // Unexpected session drop — auto-reconnect silently
+          updateStatus('idle');
+          setTimeout(() => {
+            if (statusRef.current === 'idle' && shouldAutoReconnectRef.current) {
+              preserveTranscriptRef.current = true;
+              connect(); // re-open session, keep transcript
+            }
+          }, 1200);
+        } else {
+          shouldAutoReconnectRef.current = false;
+          if (statusRef.current !== 'idle') updateStatus('idle');
+        }
       };
 
       ws.onmessage = (evt) => {
@@ -136,6 +159,7 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         } catch (e) {}
       };
     } catch (e) {
+      shouldAutoReconnectRef.current = false;
       setError('Could not initialize audio. Please allow microphone access.');
       updateStatus('error');
     }
