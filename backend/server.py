@@ -646,15 +646,11 @@ async def upload_kb_document(file: UploadFile = File(...)):
 
     # Use GPT-4.1 to structure the document into KB articles
     try:
-        chat = LlmChat(
-            api_key=OPENAI_API_KEY,
-            session_id=f"kb-upload-{uuid.uuid4()}",
-            system_message="You are an IT knowledge base manager. Extract and structure IT troubleshooting information from documents into KB articles.",
-        ).with_model("openai", "gpt-4.1")
-
-        response = await chat.send_message(
-            UserMessage(
-                text=f"""Document: {filename}
+        completion = await openai_client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[
+                {"role": "system", "content": "You are an IT knowledge base manager. Extract and structure IT troubleshooting information from documents into KB articles."},
+                {"role": "user", "content": f"""Document: {filename}
 Content: {text[:6000]}
 
 Extract 1-5 IT troubleshooting knowledge base articles from this document. Return ONLY valid JSON:
@@ -667,9 +663,11 @@ Extract 1-5 IT troubleshooting knowledge base articles from this document. Retur
       "tags": ["tag1", "tag2"]
     }}
   ]
-}}"""
-            )
+}}"""},
+            ],
+            max_tokens=2000,
         )
+        response = completion.choices[0].message.content
 
         # Parse JSON from response
         json_match = re.search(r"\{.*\}", response, re.DOTALL)
