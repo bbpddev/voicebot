@@ -281,10 +281,10 @@ async def handle_search_knowledge_base(args: dict) -> dict:
         completion = await openai_client.chat.completions.create(
             model="gpt-4.1",
             messages=[
-                {"role": "system", "content": "You are an IT support assistant. Summarize KB articles into a concise voice-friendly troubleshooting response. Maximum 3 sentences."},
-                {"role": "user", "content": f"User query: {query}\n\nKB Articles:\n{articles_text}\n\nProvide a concise troubleshooting response suitable for voice (max 3 sentences)."},
+                {"role": "system", "content": "You are an IT support assistant. Summarize KB articles into a concise voice-friendly troubleshooting response. Maximum 5 sentences."},
+                {"role": "user", "content": f"User query: {query}\n\nKB Articles:\n{articles_text}\n\nProvide a concise troubleshooting response suitable for voice (max 5 sentences)."},
             ],
-            max_tokens=300,
+            max_tokens=800,
         )
         response = completion.choices[0].message.content
         return {"found": True, "summary": response, "articles": [a["article_id"] for a in articles]}
