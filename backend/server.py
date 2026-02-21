@@ -277,16 +277,16 @@ async def handle_search_knowledge_base(args: dict) -> dict:
 
     # Use GPT-4.1 to summarize results for voice
     try:
-        chat = LlmChat(
-            api_key=OPENAI_API_KEY,
-            session_id=f"kb-{uuid.uuid4()}",
-            system_message="You are an IT support assistant. Summarize KB articles into a concise voice-friendly troubleshooting response. Maximum 3 sentences.",
-        ).with_model("openai", "gpt-4.1")
-
         articles_text = "\n\n".join([f"Title: {a['title']}\n{a['content'][:800]}" for a in articles])
-        response = await chat.send_message(
-            UserMessage(text=f"User query: {query}\n\nKB Articles:\n{articles_text}\n\nProvide a concise troubleshooting response suitable for voice (max 3 sentences).")
+        completion = await openai_client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[
+                {"role": "system", "content": "You are an IT support assistant. Summarize KB articles into a concise voice-friendly troubleshooting response. Maximum 3 sentences."},
+                {"role": "user", "content": f"User query: {query}\n\nKB Articles:\n{articles_text}\n\nProvide a concise troubleshooting response suitable for voice (max 3 sentences)."},
+            ],
+            max_tokens=300,
         )
+        response = completion.choices[0].message.content
         return {"found": True, "summary": response, "articles": [a["article_id"] for a in articles]}
     except Exception as e:
         # Fallback to raw article if GPT-4.1 fails
