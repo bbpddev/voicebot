@@ -61,6 +61,9 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   const nextPlayTimeRef = useRef(0);
   const aiTextRef = useRef('');
   const statusRef = useRef('idle');
+  // Auto-reconnect refs
+  const shouldAutoReconnectRef = useRef(false);
+  const preserveTranscriptRef = useRef(false);
 
   const updateStatus = useCallback((s) => {
     statusRef.current = s;
