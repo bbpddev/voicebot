@@ -45,6 +45,7 @@ export function TranscriptFeed({ transcript, currentAiText }) {
             if (msg.role === 'user') return <UserMessage key={idx} msg={msg} />;
             if (msg.role === 'assistant') return <AssistantMessage key={idx} msg={msg} />;
             if (msg.role === 'function') return <FunctionCard key={msg.id || idx} msg={msg} />;
+            if (msg.role === 'system') return <SystemMessage key={idx} msg={msg} />;
             return null;
           })}
 
