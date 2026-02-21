@@ -51,6 +51,9 @@ Build a web page based IT Service Desk voice agent that assists users with troub
 - [x] Streaming audio playback via AudioContext scheduler
 - [x] Live transcript feed (user & AI messages)
 - [x] IT Service Desk system prompt (Rex persona)
+- [x] **Auto-reconnect on unexpected session drop** — conversation stays live until user explicitly ends it
+- [x] **Transcript preserved across auto-reconnects** — seamless natural conversation
+- [x] Deployment to Netlify (frontend) + Railway (backend) — fix: added tailwindcss/autoprefixer to package.json devDeps
 
 ### Ticket Management
 - [x] 5 voice function tools: create_ticket, search_kb, get_ticket, list_tickets, update_ticket_status
