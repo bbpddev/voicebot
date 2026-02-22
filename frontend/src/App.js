@@ -82,7 +82,7 @@ export default function App() {
   const showIframeMicError = error === 'IFRAME_MIC_BLOCKED';
 
   return (
-    <div className="min-h-screen" style={{ background: '#050505' }} data-testid="app-container">
+    <div className="min-h-screen lg:h-screen lg:flex lg:flex-col lg:overflow-hidden" style={{ background: '#050505' }} data-testid="app-container">
       {/* Scan line effect */}
       <div className="scan-line" />
 
@@ -199,12 +199,12 @@ export default function App() {
       </header>
 
       {/* Main layout */}
-      <div className="max-w-screen-xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[calc(100vh-100px)]">
+      <div className="max-w-screen-xl mx-auto px-4 py-6 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[calc(100vh-100px)] lg:h-full lg:min-h-0">
 
           {/* LEFT — Side panel (Tickets / KB) */}
           <motion.div
-            className="lg:col-span-4 glass-panel corner-accent rounded-xl p-5 flex flex-col"
+            className="lg:col-span-4 glass-panel corner-accent rounded-xl p-5 flex flex-col lg:min-h-0"
             style={{ minHeight: '600px' }}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -250,7 +250,7 @@ export default function App() {
 
           {/* CENTER — Voice Agent */}
           <motion.div
-            className="lg:col-span-4 glass-panel corner-accent rounded-xl p-6 flex flex-col items-center justify-center gap-8"
+            className="lg:col-span-4 glass-panel corner-accent rounded-xl p-6 flex flex-col items-center justify-center gap-8 lg:min-h-0"
             style={{ minHeight: '600px', background: 'radial-gradient(circle at 50% 30%, rgba(0,240,255,0.04) 0%, rgba(5,5,5,0.95) 70%)' }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -295,7 +295,7 @@ export default function App() {
 
           {/* RIGHT — Transcript */}
           <motion.div
-            className="lg:col-span-4 glass-panel corner-accent rounded-xl p-5 flex flex-col"
+            className="lg:col-span-4 glass-panel corner-accent rounded-xl p-5 flex flex-col lg:min-h-0"
             style={{ minHeight: '600px' }}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
