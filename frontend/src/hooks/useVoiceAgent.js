@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
 const SAMPLE_RATE = 24000;
 
@@ -64,11 +64,57 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   // Auto-reconnect refs
   const shouldAutoReconnectRef = useRef(false);
   const preserveTranscriptRef = useRef(false);
+  // Conversation memory refs
+  const transcriptRef = useRef([]);       // mirrors transcript state for use in callbacks
+  const isReconnectingRef = useRef(false); // true when reconnecting with history to restore
+
+  // Keep transcriptRef current so callbacks (running in stale closures) always
+  // see the latest transcript without needing it in their dependency arrays.
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   const updateStatus = useCallback((s) => {
     statusRef.current = s;
     setStatus(s);
   }, []);
+
+  // Inject the previous conversation turns into a freshly-opened xAI session so
+  // the model can continue without asking the user to repeat themselves.
+  function injectConversationHistory(ws, history) {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !history.length) return;
+
+    const messages = history
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .slice(-30); // cap to last 30 turns to stay within context limits
+
+    for (const msg of messages) {
+      ws.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: msg.role,
+          content: [{ type: msg.role === 'user' ? 'input_text' : 'text', text: msg.text }],
+        },
+      }));
+    }
+
+    // Silent system hint — tells the model it reconnected and to carry on
+    ws.send(JSON.stringify({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'user',
+        content: [{
+          type: 'input_text',
+          text: '[System: The voice session was briefly interrupted and has now reconnected. Resume the conversation naturally from where you left off. Do not re-greet the user or ask them to repeat themselves. If there was a pending action, complete it.]',
+        }],
+      },
+    }));
+
+    // Prompt the model to respond immediately and pick up the task
+    ws.send(JSON.stringify({ type: 'response.create' }));
+  }
 
   const playAudioChunk = useCallback((b64Audio) => {
     if (!playbackCtxRef.current) return;
@@ -101,6 +147,7 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     updateStatus('connecting');
 
     // On fresh user-initiated call: clear history. On auto-reconnect: preserve it.
+    isReconnectingRef.current = Boolean(preserveTranscriptRef.current);
     if (!preserveTranscriptRef.current) {
       setTranscript([]);
     } else {
@@ -169,6 +216,10 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     switch (event.type) {
       case 'session.updated':
         updateStatus('active');
+        if (isReconnectingRef.current) {
+          isReconnectingRef.current = false;
+          injectConversationHistory(wsRef.current, transcriptRef.current);
+        }
         break;
       case 'input_audio_buffer.speech_started':
         if (statusRef.current === 'speaking') {
