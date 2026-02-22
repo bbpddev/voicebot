@@ -263,7 +263,7 @@ export default function App() {
                 {agentName}
               </h2>
               <p className="font-sub text-sm text-gray-500 tracking-widest mt-1">
-                IT Voice Intelligence
+                Your friendly AI Assistant
               </p>
               <div className="hud-line w-32 mx-auto mt-3" />
             </div>
