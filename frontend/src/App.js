@@ -160,7 +160,7 @@ export default function App() {
                 IT Service Desk
               </h1>
               <p className="font-mono text-xs text-gray-600" style={{ fontSize: '10px' }}>
-                Voice Agent // Grok Realtime + GPT-4.1
+                Voice Agent // Real-time Voice API
               </p>
             </div>
           </motion.div>
