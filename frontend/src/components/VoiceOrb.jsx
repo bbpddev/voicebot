@@ -1,6 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Mic, MicOff, Loader, Volume2, Zap, ExternalLink } from 'lucide-react';
+import { FluidCircle } from './FluidCircle';
 
 const STATUS_CONFIG = {
   idle: {
@@ -77,40 +78,9 @@ export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
 
   return (
     <div className="flex flex-col items-center gap-6" data-testid="voice-orb-container">
-      {/* Outer glow rings */}
+      {/* Fluid circle animation */}
       <div className="relative flex items-center justify-center">
-        <AnimatePresence>
-          {isActive && (
-            <>
-              <motion.div
-                key="ring1"
-                className="absolute rounded-full border"
-                style={{ borderColor: cfg.color, opacity: 0.15 }}
-                initial={{ width: 140, height: 140, opacity: 0 }}
-                animate={{ width: 220, height: 220, opacity: [0.15, 0, 0.15] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
-              />
-              <motion.div
-                key="ring2"
-                className="absolute rounded-full border"
-                style={{ borderColor: cfg.color, opacity: 0.1 }}
-                initial={{ width: 140, height: 140, opacity: 0 }}
-                animate={{ width: 280, height: 280, opacity: [0.1, 0, 0.1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
-              />
-            </>
-          )}
-          {(status === 'listening') && (
-            <motion.div
-              key="ring3"
-              className="absolute rounded-full border-2"
-              style={{ borderColor: cfg.color, opacity: 0.3 }}
-              initial={{ width: 140, height: 140, opacity: 0.3 }}
-              animate={{ width: 180, height: 180, opacity: [0.3, 0.05, 0.3] }}
-              transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          )}
-        </AnimatePresence>
+        <FluidCircle status={status} />
 
         {/* Main orb button */}
         <motion.button
