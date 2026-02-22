@@ -126,3 +126,11 @@ body::before {
   pointer-events: none;
   z-index: 999;
 }
+
+/* Lock desktop viewport — prevent page from scrolling when transcript grows */
+@media (min-width: 1024px) {
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+}
