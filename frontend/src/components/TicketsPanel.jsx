@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Ticket, RefreshCw, AlertCircle, CheckCircle,
-  Clock, XCircle, ChevronDown, Trash2
+  Clock, XCircle, ChevronDown, Trash2,
+  Flame, Users, UserPlus
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -22,11 +23,52 @@ const STATUS_CONFIG = {
   closed:      { color: '#9CA3AF', label: 'CLOSED',      icon: XCircle },
 };
 
+const DUMMY_PRIORITIES = [
+  {
+    id: 'INC-0091',
+    priority: 'critical',
+    title: 'Email service outage — Exchange Online',
+    status: 'in_progress',
+    since: '09:14 AM',
+    affected: 142,
+    description: 'Exchange Online is experiencing intermittent delivery failures across all regions. Emails delayed by 15-30 min.',
+  },
+  {
+    id: 'INC-0088',
+    priority: 'critical',
+    title: 'VPN gateway unreachable — EU West',
+    status: 'open',
+    since: '08:42 AM',
+    affected: 87,
+    description: 'EU West VPN cluster not accepting connections. Users unable to access internal resources remotely.',
+  },
+  {
+    id: 'INC-0085',
+    priority: 'high',
+    title: 'SSO login failures — Okta integration',
+    status: 'in_progress',
+    since: '07:55 AM',
+    affected: 63,
+    description: 'Intermittent 503 errors on SSO login. Some users able to authenticate after multiple retries.',
+  },
+  {
+    id: 'INC-0082',
+    priority: 'high',
+    title: 'Shared drive latency — NAS cluster 3',
+    status: 'in_progress',
+    since: '11:30 PM',
+    affected: 34,
+    description: 'File operations on NAS cluster 3 are 5-10x slower than normal. Impacting departments on floors 4-6.',
+  },
+];
+
 export function TicketsPanel({ refreshTrigger }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState(null);
+  const [affectedMap, setAffectedMap] = useState({});
+  const [expandedPriority, setExpandedPriority] = useState(null);
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -236,6 +278,135 @@ export function TicketsPanel({ refreshTrigger }) {
             );
           })}
         </AnimatePresence>
+      </div>
+
+      {/* Current P1 & P2 Section */}
+      <div className="mt-4 pt-4 flex flex-col min-h-0" style={{ borderTop: '1px solid var(--glass-border)' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <Flame size={14} style={{ color: '#FF003C' }} />
+          <h2 className="font-heading text-xs tracking-widest uppercase" style={{ color: '#FF003C' }}>
+            Current P1 &amp; P2
+          </h2>
+          <span className="ml-auto font-mono text-xs" style={{ color: 'var(--text-faint)' }}>
+            {DUMMY_PRIORITIES.length} active
+          </span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1" data-testid="priorities-list">
+          {DUMMY_PRIORITIES.map((inc) => {
+            const priorityCfg = PRIORITY_CONFIG[inc.priority] || PRIORITY_CONFIG.high;
+            const statusCfg = STATUS_CONFIG[inc.status] || STATUS_CONFIG.open;
+            const StatusIcon = statusCfg.icon;
+            const isExpanded = expandedPriority === inc.id;
+            const isMeAffected = affectedMap[inc.id] || false;
+            const totalAffected = inc.affected + (isMeAffected ? 1 : 0);
+
+            return (
+              <motion.div
+                key={inc.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-lg overflow-hidden"
+                style={{
+                  border: `1px solid ${priorityCfg.border}`,
+                  background: priorityCfg.bg,
+                }}
+                data-testid={`priority-${inc.id}`}
+              >
+                <div
+                  className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                  onClick={() => setExpandedPriority(isExpanded ? null : inc.id)}
+                >
+                  <StatusIcon size={12} style={{ color: statusCfg.color, flexShrink: 0 }} />
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs flex-shrink-0" style={{ color: priorityCfg.color, fontWeight: 600 }}>
+                        {inc.id}
+                      </span>
+                      <span className="font-body text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {inc.title}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span
+                    className="font-mono text-xs px-1.5 py-0.5 rounded flex-shrink-0"
+                    style={{
+                      color: priorityCfg.color,
+                      background: priorityCfg.bg,
+                      border: `1px solid ${priorityCfg.border}`,
+                      fontSize: '9px',
+                    }}
+                  >
+                    {priorityCfg.label}
+                  </span>
+
+                  <ChevronDown
+                    size={12}
+                    style={{ color: 'var(--text-muted)' }}
+                    className={`transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                  />
+                </div>
+
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3 pb-3 pt-2 space-y-2.5" style={{ borderTop: `1px solid ${priorityCfg.border}` }}>
+                        <p className="font-mono text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                          {inc.description}
+                        </p>
+
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="font-mono text-xs px-2 py-0.5 rounded"
+                            style={{ color: statusCfg.color, background: `${statusCfg.color}15`, border: `1px solid ${statusCfg.color}30`, fontSize: '9px' }}>
+                            {statusCfg.label}
+                          </span>
+                          <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
+                            SINCE {inc.since}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <Users size={11} style={{ color: 'var(--text-muted)' }} />
+                            <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                              {totalAffected} impacted
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAffectedMap(prev => ({ ...prev, [inc.id]: !prev[inc.id] }));
+                            }}
+                            data-testid={`btn-affected-${inc.id}`}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded font-mono text-xs uppercase tracking-wider transition-all hover:opacity-80"
+                            style={
+                              isMeAffected
+                                ? { color: '#00FF94', background: 'rgba(0,255,148,0.1)', border: '1px solid rgba(0,255,148,0.3)', fontSize: '9px' }
+                                : { color: '#FF6B00', background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.3)', fontSize: '9px' }
+                            }
+                          >
+                            <UserPlus size={10} />
+                            {isMeAffected ? 'Added' : "I'm Affected"}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
