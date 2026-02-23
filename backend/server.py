@@ -217,8 +217,22 @@ TOOLS = [
 
 # --- Function Handlers ---
 async def handle_create_ticket(args: dict) -> dict:
-    ticket_num = await tickets_col.count_documents({}) + 1
-    ticket_id = f"TKT-{ticket_num:03d}"
+    # Derive next ticket number from the highest existing ID to avoid
+    # collisions when tickets have been deleted (count_documents can drift).
+    last = await tickets_col.find_one(
+        {"ticket_id": {"$regex": r"^TKT-\d+$"}},
+        sort=[("ticket_id", -1)],
+        projection={"ticket_id": 1},
+    )
+    if last:
+        try:
+            last_num = int(last["ticket_id"].split("-")[1])
+        except (ValueError, IndexError):
+            last_num = await tickets_col.count_documents({})
+    else:
+        last_num = 0
+
+    ticket_id = f"TKT-{last_num + 1:03d}"
     doc = {
         "ticket_id": ticket_id,
         "title": args["title"],
@@ -231,7 +245,10 @@ async def handle_create_ticket(args: dict) -> dict:
         "updated_at": datetime.now(timezone.utc),
         "resolution": None,
     }
-    await tickets_col.insert_one(doc)
+    try:
+        await tickets_col.insert_one(doc)
+    except Exception as e:
+        return {"success": False, "message": f"Failed to create ticket: {str(e)}"}
     return {
         "success": True,
         "ticket_id": ticket_id,
@@ -409,33 +426,46 @@ async def voice_agent_ws(websocket: WebSocket):
                                 func_args = {}
 
                             # Notify browser that function is running
-                            await websocket.send_json({"type": "function.started", "function": func_name})
+                            try:
+                                await websocket.send_json({"type": "function.started", "function": func_name})
+                            except Exception:
+                                pass
 
-                            # Execute function
+                            # Execute function — catch errors so one bad call never
+                            # crashes the whole xai_to_browser task.
                             handler = FUNCTION_HANDLERS.get(func_name)
-                            if handler:
-                                result = await handler(func_args)
-                            else:
-                                result = {"error": f"Unknown function: {func_name}"}
+                            try:
+                                if handler:
+                                    result = await handler(func_args)
+                                else:
+                                    result = {"error": f"Unknown function: {func_name}"}
+                            except Exception as e:
+                                result = {"success": False, "error": str(e), "message": f"Function failed: {str(e)}"}
 
                             # Send result back to xAI
-                            await xai_ws.send(json.dumps({
-                                "type": "conversation.item.create",
-                                "item": {
-                                    "type": "function_call_output",
-                                    "call_id": call_id,
-                                    "output": json.dumps(result),
-                                },
-                            }))
-                            await xai_ws.send(json.dumps({"type": "response.create"}))
+                            try:
+                                await xai_ws.send(json.dumps({
+                                    "type": "conversation.item.create",
+                                    "item": {
+                                        "type": "function_call_output",
+                                        "call_id": call_id,
+                                        "output": json.dumps(result),
+                                    },
+                                }))
+                                await xai_ws.send(json.dumps({"type": "response.create"}))
+                            except Exception:
+                                pass
 
                             # Notify browser of result
-                            await websocket.send_json({
-                                "type": "function.executed",
-                                "function": func_name,
-                                "args": func_args,
-                                "result": result,
-                            })
+                            try:
+                                await websocket.send_json({
+                                    "type": "function.executed",
+                                    "function": func_name,
+                                    "args": func_args,
+                                    "result": result,
+                                })
+                            except Exception:
+                                pass
                         else:
                             await websocket.send_text(raw_msg)
                 except Exception:
