@@ -36,7 +36,7 @@ const DUMMY_PRIORITIES = [
   {
     id: 'INC-0088',
     priority: 'critical',
-    title: 'VPN gateway unreachable — EU West',
+    title: 'VPN gateway unreachable — Global Protect',
     status: 'open',
     since: '08:42 AM',
     affected: 87,
@@ -45,7 +45,7 @@ const DUMMY_PRIORITIES = [
   {
     id: 'INC-0085',
     priority: 'high',
-    title: 'SSO login failures — Okta integration',
+    title: 'SSO login failures — PingMFA',
     status: 'in_progress',
     since: '07:55 AM',
     affected: 63,
@@ -54,7 +54,7 @@ const DUMMY_PRIORITIES = [
   {
     id: 'INC-0082',
     priority: 'high',
-    title: 'Shared drive latency — NAS cluster 3',
+    title: 'Shared drive latency — Network drives',
     status: 'in_progress',
     since: '11:30 PM',
     affected: 34,
