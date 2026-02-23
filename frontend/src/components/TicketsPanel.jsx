@@ -62,17 +62,18 @@ export function TicketsPanel({ refreshTrigger }) {
   return (
     <div className="flex flex-col h-full" data-testid="tickets-panel">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-cyan-500/10">
-        <Ticket size={14} color="#00F0FF" />
-        <h2 className="font-heading text-xs tracking-widest text-cyan-400 uppercase">Support Tickets</h2>
-        <span className="ml-auto font-mono text-xs text-gray-600">{tickets.length}</span>
+      <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: '1px solid var(--glass-border)' }}>
+        <Ticket size={14} style={{ color: 'var(--primary)' }} />
+        <h2 className="font-heading text-xs tracking-widest uppercase" style={{ color: 'var(--primary)' }}>Support Tickets</h2>
+        <span className="ml-auto font-mono text-xs" style={{ color: 'var(--text-faint)' }}>{tickets.length}</span>
         <button
           onClick={fetchTickets}
-          className="p-1 rounded hover:bg-white/5 transition-colors"
+          className="p-1 rounded transition-colors"
+          style={{ background: 'transparent' }}
           data-testid="refresh-tickets-btn"
           title="Refresh tickets"
         >
-          <RefreshCw size={12} color="#9CA3AF" className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={12} style={{ color: 'var(--text-secondary)' }} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
@@ -86,8 +87,8 @@ export function TicketsPanel({ refreshTrigger }) {
             className="px-2 py-1 rounded font-mono text-xs uppercase tracking-wider transition-all"
             style={
               filter === f
-                ? { background: 'rgba(0,240,255,0.1)', color: '#00F0FF', border: '1px solid rgba(0,240,255,0.3)' }
-                : { background: 'transparent', color: '#6B7280', border: '1px solid rgba(255,255,255,0.05)' }
+                ? { background: 'var(--primary-bg)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }
+                : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--card-border)' }
             }
           >
             {f.replace('_', ' ')}
@@ -105,7 +106,7 @@ export function TicketsPanel({ refreshTrigger }) {
               animate={{ opacity: 1 }}
               className="text-center py-8"
             >
-              <p className="font-mono text-xs text-gray-600 uppercase tracking-widest">
+              <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>
                 No tickets found
               </p>
             </motion.div>
@@ -125,20 +126,21 @@ export function TicketsPanel({ refreshTrigger }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="rounded-lg overflow-hidden cursor-pointer"
-                style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}
+                style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)' }}
                 data-testid={`ticket-${ticket.ticket_id}`}
               >
                 {/* Ticket row */}
                 <div
-                  className="flex items-center gap-2 px-3 py-2.5 hover:bg-white/3 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2.5 transition-colors"
+                  style={{ cursor: 'pointer' }}
                   onClick={() => setExpanded(isExpanded ? null : ticket.ticket_id)}
                 >
                   <StatusIcon size={12} style={{ color: statusCfg.color, flexShrink: 0 }} />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-gray-500 flex-shrink-0">{ticket.ticket_id}</span>
-                      <span className="font-body text-xs text-gray-300 truncate">{ticket.title}</span>
+                      <span className="font-mono text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{ticket.ticket_id}</span>
+                      <span className="font-body text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{ticket.title}</span>
                     </div>
                   </div>
 
@@ -157,7 +159,7 @@ export function TicketsPanel({ refreshTrigger }) {
 
                   <ChevronDown
                     size={12}
-                    color="#6B7280"
+                    style={{ color: 'var(--text-muted)' }}
                     className={`transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
                   />
                 </div>
@@ -172,8 +174,8 @@ export function TicketsPanel({ refreshTrigger }) {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-3 pb-3 border-t border-white/5 pt-2 space-y-2">
-                        <p className="font-mono text-xs text-gray-400 leading-relaxed">
+                      <div className="px-3 pb-3 pt-2 space-y-2" style={{ borderTop: '1px solid var(--card-border)' }}>
+                        <p className="font-mono text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                           {ticket.description}
                         </p>
                         {ticket.resolution && (
@@ -187,7 +189,7 @@ export function TicketsPanel({ refreshTrigger }) {
                             style={{ color: statusCfg.color, background: `${statusCfg.color}15`, border: `1px solid ${statusCfg.color}30`, fontSize: '9px' }}>
                             {statusCfg.label}
                           </span>
-                          <span className="font-mono text-xs text-gray-500" style={{ fontSize: '9px' }}>
+                          <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
                             {ticket.category?.toUpperCase()}
                           </span>
                         </div>

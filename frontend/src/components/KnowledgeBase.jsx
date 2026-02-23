@@ -73,19 +73,22 @@ export function KnowledgeBase() {
   return (
     <div className="flex flex-col h-full" data-testid="knowledge-base-panel">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-cyan-500/10">
-        <BookOpen size={14} color="#00F0FF" />
-        <h2 className="font-heading text-xs tracking-widest text-cyan-400 uppercase">Knowledge Base</h2>
-        <span className="ml-auto font-mono text-xs text-gray-600">{articles.length} articles</span>
-        <button onClick={fetchArticles} className="p-1 rounded hover:bg-white/5 transition-colors" data-testid="refresh-kb-btn">
-          <RefreshCw size={12} color="#9CA3AF" className={loading ? 'animate-spin' : ''} />
+      <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: '1px solid var(--glass-border)' }}>
+        <BookOpen size={14} style={{ color: 'var(--primary)' }} />
+        <h2 className="font-heading text-xs tracking-widest uppercase" style={{ color: 'var(--primary)' }}>Knowledge Base</h2>
+        <span className="ml-auto font-mono text-xs" style={{ color: 'var(--text-faint)' }}>{articles.length} articles</span>
+        <button onClick={fetchArticles} className="p-1 rounded transition-colors" data-testid="refresh-kb-btn">
+          <RefreshCw size={12} style={{ color: 'var(--text-secondary)' }} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
       {/* Upload zone */}
       <div
-        className="mb-4 rounded-lg border-2 border-dashed p-3 text-center cursor-pointer transition-all hover:border-cyan-500/40 hover:bg-cyan-500/5"
-        style={{ borderColor: uploading ? '#7000FF' : 'rgba(0,240,255,0.15)', background: uploading ? 'rgba(112,0,255,0.05)' : 'transparent' }}
+        className="mb-4 rounded-lg border-2 border-dashed p-3 text-center cursor-pointer transition-all"
+        style={{
+          borderColor: uploading ? 'var(--secondary)' : 'var(--primary-border-faint)',
+          background: uploading ? 'var(--secondary-bg)' : 'transparent',
+        }}
         onClick={() => !uploading && fileInputRef.current?.click()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); handleUpload(e.dataTransfer.files[0]); }}
@@ -101,13 +104,13 @@ export function KnowledgeBase() {
         />
         {uploading ? (
           <div className="flex items-center justify-center gap-2">
-            <RefreshCw size={14} color="#7000FF" className="animate-spin" />
-            <span className="font-mono text-xs text-secondary">Processing with GPT-4.1...</span>
+            <RefreshCw size={14} style={{ color: 'var(--secondary)' }} className="animate-spin" />
+            <span className="font-mono text-xs" style={{ color: 'var(--secondary)' }}>Processing with GPT-4.1...</span>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2">
-            <Upload size={14} color="#00F0FF" />
-            <span className="font-mono text-xs text-gray-500">
+            <Upload size={14} style={{ color: 'var(--primary)' }} />
+            <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
               Drop PDF / DOCX / TXT to add to KB
             </span>
           </div>
@@ -133,7 +136,7 @@ export function KnowledgeBase() {
               {uploadStatus.message}
             </span>
             <button onClick={() => setUploadStatus(null)}>
-              <X size={12} color="#9CA3AF" />
+              <X size={12} style={{ color: 'var(--text-secondary)' }} />
             </button>
           </motion.div>
         )}
@@ -141,13 +144,18 @@ export function KnowledgeBase() {
 
       {/* Search */}
       <div className="relative mb-3">
-        <Search size={12} color="#6B7280" className="absolute left-2.5 top-1/2 -translate-y-1/2" />
+        <Search size={12} style={{ color: 'var(--text-muted)' }} className="absolute left-2.5 top-1/2 -translate-y-1/2" />
         <input
           type="text"
           placeholder="Search knowledge base..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 rounded font-mono text-xs bg-white/3 border border-white/8 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-cyan-500/30"
+          className="w-full pl-8 pr-3 py-1.5 rounded font-mono text-xs focus:outline-none"
+          style={{
+            background: 'var(--input-bg)',
+            border: '1px solid var(--input-border)',
+            color: 'var(--text-secondary)',
+          }}
           data-testid="kb-search-input"
         />
       </div>
@@ -158,7 +166,7 @@ export function KnowledgeBase() {
           {filtered.length === 0 && !loading && (
             <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="text-center py-8">
-              <p className="font-mono text-xs text-gray-600 uppercase tracking-widest">
+              <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>
                 {search ? 'No articles match your search' : 'No articles found'}
               </p>
             </motion.div>
@@ -176,16 +184,16 @@ export function KnowledgeBase() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 className="rounded-lg overflow-hidden"
-                style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}
+                style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)' }}
                 data-testid={`kb-article-${article.article_id}`}
               >
                 <div
-                  className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-white/3 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors"
                   onClick={() => setExpanded(isExpanded ? null : article.article_id)}
                 >
                   <FileText size={12} style={{ color: catCfg.color, flexShrink: 0 }} />
                   <div className="flex-1 min-w-0">
-                    <p className="font-body text-xs text-gray-300 truncate">{article.title}</p>
+                    <p className="font-body text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{article.title}</p>
                   </div>
                   <span
                     className="font-mono px-1.5 py-0.5 rounded flex-shrink-0"
@@ -211,23 +219,23 @@ export function KnowledgeBase() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-3 pb-3 border-t border-white/5 pt-2 space-y-2">
-                        <p className="font-mono text-xs text-gray-400 leading-relaxed whitespace-pre-wrap">
+                      <div className="px-3 pb-3 pt-2 space-y-2" style={{ borderTop: '1px solid var(--card-border)' }}>
+                        <p className="font-mono text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
                           {article.content}
                         </p>
                         {article.tags?.length > 0 && (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <Tag size={10} color="#6B7280" />
+                            <Tag size={10} style={{ color: 'var(--text-muted)' }} />
                             {article.tags.map(tag => (
-                              <span key={tag} className="font-mono text-xs text-gray-600 px-1.5 py-0.5 rounded"
-                                style={{ background: 'rgba(255,255,255,0.04)', fontSize: '9px' }}>
+                              <span key={tag} className="font-mono text-xs px-1.5 py-0.5 rounded"
+                                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-muted)', fontSize: '9px' }}>
                                 {tag}
                               </span>
                             ))}
                           </div>
                         )}
                         {article.source && article.source !== 'preloaded' && (
-                          <p className="font-mono text-gray-600" style={{ fontSize: '9px' }}>
+                          <p className="font-mono" style={{ fontSize: '9px', color: 'var(--text-faint)' }}>
                             Source: {article.source}
                           </p>
                         )}

@@ -87,7 +87,7 @@ export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
           data-testid="voice-orb-button"
           className="relative w-36 h-36 rounded-full flex items-center justify-center cursor-pointer select-none z-10"
           style={{
-            background: `radial-gradient(circle at 35% 35%, ${cfg.color}22, #050505 70%)`,
+            background: `radial-gradient(circle at 35% 35%, ${cfg.color}22, var(--orb-center, #050505) 70%)`,
             border: `2px solid ${cfg.color}`,
             boxShadow: `0 0 40px ${cfg.glowColor}, 0 0 80px ${cfg.glowColor}40, inset 0 0 30px ${cfg.glowColor}20`,
           }}
@@ -154,7 +154,8 @@ export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
 
       {/* Instruction text */}
       <motion.p
-        className="font-mono text-xs text-gray-500 text-center max-w-xs"
+        className="font-mono text-xs text-center max-w-xs"
+        style={{ color: 'var(--text-muted)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}

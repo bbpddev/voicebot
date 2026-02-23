@@ -12,12 +12,12 @@ export function TranscriptFeed({ transcript, currentAiText }) {
   return (
     <div className="flex flex-col h-full" data-testid="transcript-feed">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-cyan-500/10">
-        <div className="w-2 h-2 rounded-full bg-primary" style={{ boxShadow: '0 0 6px #00F0FF' }} />
-        <h2 className="font-heading text-xs tracking-widest text-cyan-400 uppercase">
+      <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: '1px solid var(--glass-border)' }}>
+        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--primary)', boxShadow: '0 0 6px var(--primary)' }} />
+        <h2 className="font-heading text-xs tracking-widest uppercase" style={{ color: 'var(--primary)' }}>
           Agent Journey
         </h2>
-        <span className="ml-auto font-mono text-xs text-gray-600">
+        <span className="ml-auto font-mono text-xs" style={{ color: 'var(--text-faint)' }}>
           {transcript.filter(m => m.role === 'user' || m.role === 'assistant').length} turns
         </span>
       </div>
@@ -32,10 +32,10 @@ export function TranscriptFeed({ transcript, currentAiText }) {
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center h-32 text-center"
             >
-              <p className="font-mono text-xs text-gray-600 uppercase tracking-widest">
+              <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>
                 — Awaiting voice session —
               </p>
-              <p className="font-mono text-xs text-gray-700 mt-2">
+              <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-faint)' }}>
                 Activate the orb to start
               </p>
             </motion.div>
@@ -64,10 +64,10 @@ export function TranscriptFeed({ transcript, currentAiText }) {
               </div>
               <div className="flex-1">
                 <div className="inline-flex items-center gap-1 mb-1">
-                  <span className="font-mono text-xs text-success/60 uppercase tracking-wider">Agent</span>
+                  <span className="font-mono text-xs uppercase tracking-wider" style={{ color: 'rgba(0,255,148,0.6)' }}>Agent</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                 </div>
-                <p className="font-mono text-sm text-gray-200 leading-relaxed">
+                <p className="font-mono text-sm leading-relaxed" style={{ color: 'var(--msg-text)' }}>
                   {currentAiText}
                   <span className="inline-block w-0.5 h-3.5 bg-success animate-pulse ml-0.5 align-middle" />
                 </p>
@@ -110,14 +110,14 @@ function UserMessage({ msg }) {
       data-testid="transcript-msg-user"
     >
       <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-        style={{ background: 'rgba(0,240,255,0.1)', border: '1px solid rgba(0,240,255,0.3)' }}>
-        <User size={12} color="#00F0FF" />
+        style={{ background: 'var(--primary-bg)', border: '1px solid var(--primary-border)' }}>
+        <User size={12} style={{ color: 'var(--primary)' }} />
       </div>
       <div className="max-w-[78%] flex flex-col items-end">
-        <span className="font-mono text-xs text-cyan-400/60 uppercase tracking-wider mb-1">You</span>
+        <span className="font-mono text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--primary)', opacity: 0.7 }}>You</span>
         <div className="px-3 py-2 rounded-lg"
-          style={{ background: 'rgba(0,240,255,0.06)', border: '1px solid rgba(0,240,255,0.15)' }}>
-          <p className="font-mono text-sm text-gray-200 leading-relaxed">{msg.text}</p>
+          style={{ background: 'var(--msg-user-bg)', border: '1px solid var(--msg-user-border)' }}>
+          <p className="font-mono text-sm leading-relaxed" style={{ color: 'var(--msg-text)' }}>{msg.text}</p>
         </div>
       </div>
     </motion.div>
@@ -139,10 +139,10 @@ function AssistantMessage({ msg }) {
         <Bot size={12} color="#00FF94" />
       </div>
       <div className="max-w-[85%] flex flex-col">
-        <span className="font-mono text-xs text-success/60 uppercase tracking-wider mb-1">Agent</span>
+        <span className="font-mono text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(0,255,148,0.6)' }}>Agent</span>
         <div className="px-3 py-2 rounded-lg"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <p className="font-mono text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+          style={{ background: 'var(--msg-ai-bg)', border: '1px solid var(--msg-ai-border)' }}>
+          <p className="font-mono text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--msg-text)' }}>{msg.text}</p>
         </div>
       </div>
     </motion.div>
@@ -226,8 +226,8 @@ function Step({ label, value, color = '#9CA3AF' }) {
     <div className="flex items-start gap-1.5">
       <ChevronRight size={10} color={color} className="mt-0.5 flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <span className="font-mono text-gray-600" style={{ fontSize: '10px' }}>{label}: </span>
-        <span className="font-mono text-gray-300" style={{ fontSize: '10px' }}>{value}</span>
+        <span className="font-mono" style={{ fontSize: '10px', color: 'var(--text-faint)' }}>{label}: </span>
+        <span className="font-mono" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{value}</span>
       </div>
     </div>
   );
@@ -242,7 +242,7 @@ function KBSearchBody({ args, result }) {
           <Step label="Articles found" value={(result.articles || []).join(', ')} color="#00FF94" />
           {result.summary && (
             <div className="mt-2 pt-2 border-t" style={{ borderColor: 'rgba(112,0,255,0.1)' }}>
-              <p className="font-mono leading-relaxed" style={{ fontSize: '10px', color: '#d1d5db' }}>
+              <p className="font-mono leading-relaxed" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
                 {result.summary}
               </p>
             </div>
@@ -282,8 +282,8 @@ function ListTicketsBody({ result }) {
       <Step label="Found" value={`${result.count} tickets`} color="#00F0FF" />
       {(result.tickets || []).slice(0, 5).map(t => (
         <div key={t.ticket_id} className="flex items-center gap-2 pl-3">
-          <span className="font-mono" style={{ fontSize: '10px', color: '#6B7280' }}>{t.ticket_id}</span>
-          <span className="font-mono truncate" style={{ fontSize: '10px', color: '#9CA3AF' }}>{t.title}</span>
+          <span className="font-mono" style={{ fontSize: '10px', color: 'var(--text-faint)' }}>{t.ticket_id}</span>
+          <span className="font-mono truncate" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{t.title}</span>
           <span className="font-mono ml-auto flex-shrink-0" style={{ fontSize: '9px', color: STATUS_COLORS[t.status] || '#9CA3AF' }}>
             {t.status?.replace('_', ' ').toUpperCase()}
           </span>
@@ -305,7 +305,7 @@ function UpdateTicketBody({ args, result }) {
 
 function GenericBody({ result }) {
   return (
-    <p className="font-mono text-gray-400" style={{ fontSize: '10px' }}>
+    <p className="font-mono" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
       {JSON.stringify(result).substring(0, 120)}
     </p>
   );
