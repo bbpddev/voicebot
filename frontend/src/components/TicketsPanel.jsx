@@ -23,50 +23,12 @@ const STATUS_CONFIG = {
   closed:      { color: '#9CA3AF', label: 'CLOSED',      icon: XCircle },
 };
 
-const DUMMY_PRIORITIES = [
-  {
-    id: 'INC-0091',
-    priority: 'critical',
-    title: 'Email service outage — Exchange Online',
-    status: 'in_progress',
-    since: '09:14 AM',
-    affected: 142,
-    description: 'Exchange Online is experiencing intermittent delivery failures across all regions. Emails delayed by 15-30 min.',
-  },
-  {
-    id: 'INC-0088',
-    priority: 'critical',
-    title: 'VPN gateway unreachable — Global Protect',
-    status: 'open',
-    since: '08:42 AM',
-    affected: 87,
-    description: 'EU West VPN cluster not accepting connections. Users unable to access internal resources remotely.',
-  },
-  {
-    id: 'INC-0085',
-    priority: 'high',
-    title: 'SSO login failures — PingMFA',
-    status: 'in_progress',
-    since: '07:55 AM',
-    affected: 63,
-    description: 'Intermittent 503 errors on SSO login. Some users able to authenticate after multiple retries.',
-  },
-  {
-    id: 'INC-0082',
-    priority: 'high',
-    title: 'Shared drive latency — Network drives',
-    status: 'in_progress',
-    since: '11:30 PM',
-    affected: 34,
-    description: 'File operations on NAS cluster 3 are 5-10x slower than normal. Impacting departments on floors 4-6.',
-  },
-];
-
 export function TicketsPanel({ refreshTrigger }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState(null);
+  const [priorities, setPriorities] = useState([]);
   const [affectedMap, setAffectedMap] = useState({});
   const [expandedPriority, setExpandedPriority] = useState(null);
 
@@ -83,7 +45,16 @@ export function TicketsPanel({ refreshTrigger }) {
     }
   }, [filter]);
 
-  useEffect(() => { fetchTickets(); }, [fetchTickets, refreshTrigger]);
+  const fetchPriorities = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/priority-incidents`);
+      setPriorities(res.data);
+    } catch (e) {
+      console.error('Failed to fetch priority incidents:', e);
+    }
+  }, []);
+
+  useEffect(() => { fetchTickets(); fetchPriorities(); }, [fetchTickets, fetchPriorities, refreshTrigger]);
 
   const updateStatus = async (ticketId, status) => {
     try {
@@ -288,22 +259,22 @@ export function TicketsPanel({ refreshTrigger }) {
             Current P1 &amp; P2
           </h2>
           <span className="ml-auto font-mono text-xs" style={{ color: 'var(--text-faint)' }}>
-            {DUMMY_PRIORITIES.length} active
+            {priorities.length} active
           </span>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1" data-testid="priorities-list">
-          {DUMMY_PRIORITIES.map((inc) => {
+          {priorities.map((inc) => {
+            const incId = inc.incident_id;
             const priorityCfg = PRIORITY_CONFIG[inc.priority] || PRIORITY_CONFIG.high;
             const statusCfg = STATUS_CONFIG[inc.status] || STATUS_CONFIG.open;
             const StatusIcon = statusCfg.icon;
-            const isExpanded = expandedPriority === inc.id;
-            const isMeAffected = affectedMap[inc.id] || false;
-            const totalAffected = inc.affected + (isMeAffected ? 1 : 0);
+            const isExpanded = expandedPriority === incId;
+            const isMeAffected = affectedMap[incId] || false;
 
             return (
               <motion.div
-                key={inc.id}
+                key={incId}
                 layout
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -312,18 +283,18 @@ export function TicketsPanel({ refreshTrigger }) {
                   border: `1px solid ${priorityCfg.border}`,
                   background: priorityCfg.bg,
                 }}
-                data-testid={`priority-${inc.id}`}
+                data-testid={`priority-${incId}`}
               >
                 <div
                   className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
-                  onClick={() => setExpandedPriority(isExpanded ? null : inc.id)}
+                  onClick={() => setExpandedPriority(isExpanded ? null : incId)}
                 >
                   <StatusIcon size={12} style={{ color: statusCfg.color, flexShrink: 0 }} />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs flex-shrink-0" style={{ color: priorityCfg.color, fontWeight: 600 }}>
-                        {inc.id}
+                        {incId}
                       </span>
                       <span className="font-body text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
                         {inc.title}
@@ -378,16 +349,24 @@ export function TicketsPanel({ refreshTrigger }) {
                           <div className="flex items-center gap-1.5">
                             <Users size={11} style={{ color: 'var(--text-muted)' }} />
                             <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-                              {totalAffected} impacted
+                              {inc.affected} impacted
                             </span>
                           </div>
 
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              setAffectedMap(prev => ({ ...prev, [inc.id]: !prev[inc.id] }));
+                              const wasAffected = affectedMap[incId];
+                              const action = wasAffected ? 'remove' : 'add';
+                              try {
+                                await axios.post(`${API}/api/priority-incidents/${incId}/affected`, { action });
+                                setAffectedMap(prev => ({ ...prev, [incId]: !wasAffected }));
+                                fetchPriorities();
+                              } catch (err) {
+                                console.error('Failed to update affected status:', err);
+                              }
                             }}
-                            data-testid={`btn-affected-${inc.id}`}
+                            data-testid={`btn-affected-${incId}`}
                             className="flex items-center gap-1.5 px-2.5 py-1 rounded font-mono text-xs uppercase tracking-wider transition-all hover:opacity-80"
                             style={
                               isMeAffected
