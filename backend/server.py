@@ -38,6 +38,7 @@ db = mongo_client[DB_NAME]
 tickets_col = db["tickets"]
 kb_col = db["knowledge_base"]
 config_col = db["config"]
+priority_incidents_col = db["priority_incidents"]
 
 # --- PyObjectId helper ---
 def validate_object_id(v: Any) -> str:
@@ -101,20 +102,24 @@ DEFAULT_SYSTEM_PROMPT = """You are ChatIt, an advanced AI-powered IT Service Des
 
 YOUR CAPABILITIES:
 1. TROUBLESHOOT technical issues - provide step-by-step solutions using the knowledge base
-2. CREATE TICKETS - log support requests that need tracking 
+2. CREATE TICKETS - log support requests that need tracking
 3. SEARCH KNOWLEDGE BASE - find known solutions for IT problems
 4. CHECK & UPDATE TICKETS - retrieve status and update existing tickets
+5. CHECK CURRENT OUTAGES - list active P1/P2 priority incidents using list_priority_incidents
+6. REPORT IMPACT - add the caller as an impacted user on a P1/P2 incident using add_me_to_priority_incident
 
 WORKFLOW FOR USER ISSUES:
 1. Listen to the user's problem
-2. Search the knowledge base first using search_knowledge_base
-3. Provide the solution from KB results
-4. If issue needs tracking or cannot be resolved immediately, create a ticket
+2. If the issue sounds like it could be a known outage (e.g. VPN down, email issues, SSO failures), check current P1/P2 incidents first using list_priority_incidents
+3. If their issue matches an active incident, let them know and offer to add them as impacted
+4. Otherwise, search the knowledge base for solutions
+5. If issue needs tracking or cannot be resolved immediately, create a ticket
 
 TICKET PRIORITIES: low (minor inconvenience), medium (work impacted), high (cannot work), critical (business-critical outage)
 TICKET CATEGORIES: network, software, hardware, access, email, general
 
 Always confirm ticket creation with the ticket ID (e.g., "I've created ticket TKT-007 for you").
+When adding a user to a P1/P2 incident, confirm with the incident ID and current impacted count.
 Be concise - this is a voice interface. Keep responses under 3-4 sentences.
 Start by greeting the user and asking how you can help with IT today."""
 
@@ -210,6 +215,30 @@ TOOLS = [
                 "note": {"type": "string", "description": "Optional resolution or status note"},
             },
             "required": ["ticket_id", "status"],
+        },
+    },
+    {
+        "type": "function",
+        "name": "list_priority_incidents",
+        "description": "List current active P1 and P2 priority incidents (major outages). Use this when the user asks about current outages, ongoing incidents, or known issues.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "type": "function",
+        "name": "add_me_to_priority_incident",
+        "description": "Add the caller as an impacted user on a current P1 or P2 priority incident. Use this when a user says they are affected by, or experiencing, a known outage.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "incident_id": {
+                    "type": "string",
+                    "description": "The incident ID to add the user to (e.g., INC-0091)",
+                },
+            },
+            "required": ["incident_id"],
         },
     },
 ]
@@ -360,12 +389,55 @@ async def handle_update_ticket_status(args: dict) -> dict:
     return {"success": True, "message": f"Ticket {ticket_id} updated to status: {status}."}
 
 
+async def handle_list_priority_incidents(args: dict) -> dict:
+    incidents = []
+    cursor = priority_incidents_col.find({"active": True}).sort("priority", 1)
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        if isinstance(doc.get("created_at"), datetime):
+            doc["created_at"] = doc["created_at"].isoformat()
+        incidents.append({
+            "incident_id": doc["incident_id"],
+            "title": doc["title"],
+            "priority": doc["priority"],
+            "status": doc["status"],
+            "since": doc.get("since", ""),
+            "affected": doc.get("affected", 0),
+            "description": doc.get("description", ""),
+        })
+    if not incidents:
+        return {"count": 0, "message": "No active P1/P2 incidents right now.", "incidents": []}
+    summary = ", ".join([f"{i['incident_id']}: {i['title']}" for i in incidents])
+    return {"count": len(incidents), "incidents": incidents, "summary": f"There are {len(incidents)} active incidents: {summary}"}
+
+
+async def handle_add_me_to_priority_incident(args: dict) -> dict:
+    incident_id = args["incident_id"].upper()
+    doc = await priority_incidents_col.find_one({"incident_id": incident_id, "active": True})
+    if not doc:
+        return {"success": False, "message": f"Incident {incident_id} not found or is no longer active."}
+    await priority_incidents_col.update_one(
+        {"incident_id": incident_id},
+        {"$inc": {"affected": 1}},
+    )
+    new_count = doc.get("affected", 0) + 1
+    return {
+        "success": True,
+        "incident_id": incident_id,
+        "title": doc["title"],
+        "affected": new_count,
+        "message": f"You've been added as impacted on {incident_id} ({doc['title']}). Total impacted users: {new_count}.",
+    }
+
+
 FUNCTION_HANDLERS = {
     "create_ticket": handle_create_ticket,
     "search_knowledge_base": handle_search_knowledge_base,
     "get_ticket": handle_get_ticket,
     "list_tickets": handle_list_tickets,
     "update_ticket_status": handle_update_ticket_status,
+    "list_priority_incidents": handle_list_priority_incidents,
+    "add_me_to_priority_incident": handle_add_me_to_priority_incident,
 }
 
 
@@ -557,6 +629,34 @@ async def delete_ticket(ticket_id: str):
     if result.deleted_count == 0:
         raise HTTPException(404, "Ticket not found")
     return {"success": True}
+
+
+# --- REST: Priority Incidents ---
+@app.get("/api/priority-incidents")
+async def list_priority_incidents_api():
+    incidents = []
+    cursor = priority_incidents_col.find({"active": True}).sort("priority", 1)
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        if isinstance(doc.get("created_at"), datetime):
+            doc["created_at"] = doc["created_at"].isoformat()
+        incidents.append(doc)
+    return incidents
+
+
+@app.post("/api/priority-incidents/{incident_id}/affected")
+async def toggle_affected(incident_id: str, body: dict = {}):
+    """Increment or decrement the affected count for a priority incident."""
+    action = body.get("action", "add")
+    inc_val = 1 if action == "add" else -1
+    result = await priority_incidents_col.update_one(
+        {"incident_id": incident_id.upper(), "active": True},
+        {"$inc": {"affected": inc_val}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Incident not found")
+    doc = await priority_incidents_col.find_one({"incident_id": incident_id.upper()})
+    return {"success": True, "affected": doc.get("affected", 0)}
 
 
 # --- REST: Knowledge Base ---
@@ -851,6 +951,50 @@ TICKET_SEED = [
 ]
 
 
+PRIORITY_INCIDENT_SEED = [
+    {
+        "incident_id": "INC-0091",
+        "priority": "critical",
+        "title": "Email service outage — Exchange Online",
+        "status": "in_progress",
+        "since": "09:14 AM",
+        "affected": 142,
+        "description": "Exchange Online is experiencing intermittent delivery failures across all regions. Emails delayed by 15-30 min.",
+        "active": True,
+    },
+    {
+        "incident_id": "INC-0088",
+        "priority": "critical",
+        "title": "VPN gateway unreachable — Global Protect",
+        "status": "open",
+        "since": "08:42 AM",
+        "affected": 87,
+        "description": "Global Protect VPN cluster not accepting connections. Users unable to access internal resources remotely.",
+        "active": True,
+    },
+    {
+        "incident_id": "INC-0085",
+        "priority": "high",
+        "title": "SSO login failures — PingMFA",
+        "status": "in_progress",
+        "since": "07:55 AM",
+        "affected": 63,
+        "description": "Intermittent 503 errors on SSO login via PingMFA. Some users able to authenticate after multiple retries.",
+        "active": True,
+    },
+    {
+        "incident_id": "INC-0082",
+        "priority": "high",
+        "title": "Shared drive latency — Network drives",
+        "status": "in_progress",
+        "since": "11:30 PM",
+        "affected": 34,
+        "description": "File operations on network drives are 5-10x slower than normal. Impacting departments on floors 4-6.",
+        "active": True,
+    },
+]
+
+
 @app.on_event("startup")
 async def startup_event():
     # Create text indexes
@@ -876,6 +1020,16 @@ async def startup_event():
         for ticket in TICKET_SEED:
             try:
                 await tickets_col.insert_one(ticket.copy())
+            except Exception:
+                pass
+
+    # Seed Priority Incidents if empty
+    pi_count = await priority_incidents_col.count_documents({})
+    if pi_count == 0:
+        for inc in PRIORITY_INCIDENT_SEED:
+            inc["created_at"] = datetime.now(timezone.utc)
+            try:
+                await priority_incidents_col.insert_one(inc.copy())
             except Exception:
                 pass
 

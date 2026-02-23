@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Ticket, RefreshCw, AlertCircle, CheckCircle,
-  Clock, XCircle, ChevronDown, Trash2
+  Clock, XCircle, ChevronDown, Trash2,
+  Flame, Users, UserPlus
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -27,6 +28,9 @@ export function TicketsPanel({ refreshTrigger }) {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState(null);
+  const [priorities, setPriorities] = useState([]);
+  const [affectedMap, setAffectedMap] = useState({});
+  const [expandedPriority, setExpandedPriority] = useState(null);
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -41,7 +45,16 @@ export function TicketsPanel({ refreshTrigger }) {
     }
   }, [filter]);
 
-  useEffect(() => { fetchTickets(); }, [fetchTickets, refreshTrigger]);
+  const fetchPriorities = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/priority-incidents`);
+      setPriorities(res.data);
+    } catch (e) {
+      console.error('Failed to fetch priority incidents:', e);
+    }
+  }, []);
+
+  useEffect(() => { fetchTickets(); fetchPriorities(); }, [fetchTickets, fetchPriorities, refreshTrigger]);
 
   const updateStatus = async (ticketId, status) => {
     try {
@@ -236,6 +249,143 @@ export function TicketsPanel({ refreshTrigger }) {
             );
           })}
         </AnimatePresence>
+      </div>
+
+      {/* Current P1 & P2 Section */}
+      <div className="mt-4 pt-4 flex flex-col min-h-0" style={{ borderTop: '1px solid var(--glass-border)' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <Flame size={14} style={{ color: '#FF003C' }} />
+          <h2 className="font-heading text-xs tracking-widest uppercase" style={{ color: '#FF003C' }}>
+            Current P1 &amp; P2
+          </h2>
+          <span className="ml-auto font-mono text-xs" style={{ color: 'var(--text-faint)' }}>
+            {priorities.length} active
+          </span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1" data-testid="priorities-list">
+          {priorities.map((inc) => {
+            const incId = inc.incident_id;
+            const priorityCfg = PRIORITY_CONFIG[inc.priority] || PRIORITY_CONFIG.high;
+            const statusCfg = STATUS_CONFIG[inc.status] || STATUS_CONFIG.open;
+            const StatusIcon = statusCfg.icon;
+            const isExpanded = expandedPriority === incId;
+            const isMeAffected = affectedMap[incId] || false;
+
+            return (
+              <motion.div
+                key={incId}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-lg overflow-hidden"
+                style={{
+                  border: `1px solid ${priorityCfg.border}`,
+                  background: priorityCfg.bg,
+                }}
+                data-testid={`priority-${incId}`}
+              >
+                <div
+                  className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                  onClick={() => setExpandedPriority(isExpanded ? null : incId)}
+                >
+                  <StatusIcon size={12} style={{ color: statusCfg.color, flexShrink: 0 }} />
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs flex-shrink-0" style={{ color: priorityCfg.color, fontWeight: 600 }}>
+                        {incId}
+                      </span>
+                      <span className="font-body text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {inc.title}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span
+                    className="font-mono text-xs px-1.5 py-0.5 rounded flex-shrink-0"
+                    style={{
+                      color: priorityCfg.color,
+                      background: priorityCfg.bg,
+                      border: `1px solid ${priorityCfg.border}`,
+                      fontSize: '9px',
+                    }}
+                  >
+                    {priorityCfg.label}
+                  </span>
+
+                  <ChevronDown
+                    size={12}
+                    style={{ color: 'var(--text-muted)' }}
+                    className={`transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                  />
+                </div>
+
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3 pb-3 pt-2 space-y-2.5" style={{ borderTop: `1px solid ${priorityCfg.border}` }}>
+                        <p className="font-mono text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                          {inc.description}
+                        </p>
+
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="font-mono text-xs px-2 py-0.5 rounded"
+                            style={{ color: statusCfg.color, background: `${statusCfg.color}15`, border: `1px solid ${statusCfg.color}30`, fontSize: '9px' }}>
+                            {statusCfg.label}
+                          </span>
+                          <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
+                            SINCE {inc.since}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <Users size={11} style={{ color: 'var(--text-muted)' }} />
+                            <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                              {inc.affected} impacted
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const wasAffected = affectedMap[incId];
+                              const action = wasAffected ? 'remove' : 'add';
+                              try {
+                                await axios.post(`${API}/api/priority-incidents/${incId}/affected`, { action });
+                                setAffectedMap(prev => ({ ...prev, [incId]: !wasAffected }));
+                                fetchPriorities();
+                              } catch (err) {
+                                console.error('Failed to update affected status:', err);
+                              }
+                            }}
+                            data-testid={`btn-affected-${incId}`}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded font-mono text-xs uppercase tracking-wider transition-all hover:opacity-80"
+                            style={
+                              isMeAffected
+                                ? { color: '#00FF94', background: 'rgba(0,255,148,0.1)', border: '1px solid rgba(0,255,148,0.3)', fontSize: '9px' }
+                                : { color: '#FF6B00', background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.3)', fontSize: '9px' }
+                            }
+                          >
+                            <UserPlus size={10} />
+                            {isMeAffected ? 'Added' : "I'm Affected"}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

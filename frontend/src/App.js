@@ -305,6 +305,7 @@ export default function App() {
                 { label: 'Create Support Tickets', color: 'var(--secondary)' },
                 { label: 'Search Knowledge Base', color: '#00FF94' },
                 { label: 'Track Ticket Status', color: '#FFD600' },
+                { label: 'Report P1/P2 Impact', color: '#FF003C' },
               ].map((cap) => (
                 <div key={cap.label} className="flex items-center gap-2 px-3 py-1.5 rounded"
                   style={{ background: 'var(--cap-item-bg)', border: '1px solid var(--cap-item-border)' }}>

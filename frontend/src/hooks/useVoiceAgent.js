@@ -283,7 +283,7 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
           return updated;
         });
         setLastFunction({ name: event.function, result: event.result, args: event.args });
-        if (event.function === 'create_ticket' || event.function === 'update_ticket_status') {
+        if (['create_ticket', 'update_ticket_status', 'add_me_to_priority_incident', 'list_priority_incidents'].includes(event.function)) {
           onTicketsChange && onTicketsChange();
         }
         updateStatus('speaking');
