@@ -1023,15 +1023,18 @@ async def startup_event():
             except Exception:
                 pass
 
-    # Seed Priority Incidents if empty
-    pi_count = await priority_incidents_col.count_documents({})
-    if pi_count == 0:
-        for inc in PRIORITY_INCIDENT_SEED:
-            inc["created_at"] = datetime.now(timezone.utc)
-            try:
-                await priority_incidents_col.insert_one(inc.copy())
-            except Exception:
-                pass
+    # Seed Priority Incidents — upsert so they always exist
+    for inc in PRIORITY_INCIDENT_SEED:
+        inc_copy = inc.copy()
+        inc_copy["created_at"] = datetime.now(timezone.utc)
+        try:
+            await priority_incidents_col.update_one(
+                {"incident_id": inc_copy["incident_id"]},
+                {"$setOnInsert": inc_copy},
+                upsert=True,
+            )
+        except Exception:
+            pass
 
 
 @app.get("/api/health")
