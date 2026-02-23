@@ -110,10 +110,11 @@ YOUR CAPABILITIES:
 
 WORKFLOW FOR USER ISSUES:
 1. Listen to the user's problem
-2. If the issue sounds like it could be a known outage (e.g. VPN down, email issues, SSO failures), check current P1/P2 incidents first using list_priority_incidents
-3. If their issue matches an active incident, let them know and offer to add them as impacted
-4. Otherwise, search the knowledge base for solutions
-5. If issue needs tracking or cannot be resolved immediately, create a ticket
+2. If the user explicitly asks to reopen, close, or change the status of a ticket, call update_ticket_status immediately - do NOT search the KB first
+3. If the issue sounds like it could be a known outage (e.g. VPN down, email issues, SSO failures), check current P1/P2 incidents first using list_priority_incidents
+4. If their issue matches an active incident, let them know and offer to add them as impacted
+5. Otherwise, search the knowledge base for solutions
+6. If issue needs tracking or cannot be resolved immediately, create a ticket
 
 TICKET PRIORITIES: low (minor inconvenience), medium (work impacted), high (cannot work), critical (business-critical outage)
 TICKET CATEGORIES: network, software, hardware, access, email, general
@@ -203,7 +204,7 @@ TOOLS = [
     {
         "type": "function",
         "name": "update_ticket_status",
-        "description": "Update the status of an existing ticket",
+        "description": "Update the status of an existing ticket. Use this to reopen a resolved or closed ticket (set status to 'open'), mark as in_progress, resolve, or close it. When the user asks to reopen a ticket, call this immediately with status='open'.",
         "parameters": {
             "type": "object",
             "properties": {
