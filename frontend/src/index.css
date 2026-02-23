@@ -8,14 +8,101 @@
   box-sizing: border-box;
 }
 
+/* ── Dark theme (default) ── */
+:root {
+  --bg:                    #050505;
+  --surface-solid:         #0A0A0A;
+  --glass-panel-bg:        linear-gradient(180deg, rgba(10,10,10,0.9) 0%, rgba(5,5,5,0.95) 100%);
+  --glass-border:          rgba(0, 240, 255, 0.12);
+  --corner-color:          #00F0FF;
+  --header-bg:             rgba(5, 5, 5, 0.95);
+  --header-border:         rgba(0, 240, 255, 0.08);
+  --text-primary:          #FFFFFF;
+  --text-secondary:        #9CA3AF;
+  --text-muted:            #6B7280;
+  --text-faint:            #4B5563;
+  --card-bg:               rgba(255, 255, 255, 0.02);
+  --card-border:           rgba(255, 255, 255, 0.06);
+  --card-hover:            rgba(255, 255, 255, 0.03);
+  --tab-container-bg:      rgba(255, 255, 255, 0.03);
+  --input-bg:              rgba(255, 255, 255, 0.03);
+  --input-border:          rgba(255, 255, 255, 0.08);
+  --scrollbar-track:       #0A0A0A;
+  --scrollbar-thumb:       rgba(0, 240, 255, 0.3);
+  --scrollbar-thumb-hover: rgba(0, 240, 255, 0.6);
+  --orb-center:            #050505;
+  --center-panel-gradient: radial-gradient(circle at 50% 30%, rgba(0,240,255,0.04) 0%, rgba(5,5,5,0.95) 70%);
+  --primary:               #00F0FF;
+  --primary-bg:            rgba(0, 240, 255, 0.1);
+  --primary-border:        rgba(0, 240, 255, 0.3);
+  --primary-border-faint:  rgba(0, 240, 255, 0.15);
+  --secondary:             #7000FF;
+  --secondary-bg:          rgba(112, 0, 255, 0.08);
+  --secondary-border:      rgba(112, 0, 255, 0.2);
+  --msg-user-bg:           rgba(0, 240, 255, 0.06);
+  --msg-user-border:       rgba(0, 240, 255, 0.15);
+  --msg-ai-bg:             rgba(255, 255, 255, 0.04);
+  --msg-ai-border:         rgba(255, 255, 255, 0.08);
+  --msg-text:              #E5E7EB;
+  --modal-bg:              #0A0A0A;
+  --cap-item-bg:           rgba(255, 255, 255, 0.02);
+  --cap-item-border:       rgba(255, 255, 255, 0.04);
+  --scan-color:            rgba(0, 240, 255, 0.05);
+  --noise-opacity:         0.35;
+}
+
+/* ── Light theme ── */
+.light {
+  --bg:                    #EEF4FF;
+  --surface-solid:         #FFFFFF;
+  --glass-panel-bg:        linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(238,244,255,0.96) 100%);
+  --glass-border:          rgba(8, 145, 178, 0.16);
+  --corner-color:          #0891B2;
+  --header-bg:             rgba(248, 252, 255, 0.96);
+  --header-border:         rgba(8, 145, 178, 0.12);
+  --text-primary:          #0F172A;
+  --text-secondary:        #475569;
+  --text-muted:            #64748B;
+  --text-faint:            #94A3B8;
+  --card-bg:               rgba(0, 0, 0, 0.025);
+  --card-border:           rgba(0, 0, 0, 0.07);
+  --card-hover:            rgba(0, 0, 0, 0.04);
+  --tab-container-bg:      rgba(0, 0, 0, 0.04);
+  --input-bg:              rgba(0, 0, 0, 0.03);
+  --input-border:          rgba(0, 0, 0, 0.1);
+  --scrollbar-track:       #DDE6F5;
+  --scrollbar-thumb:       rgba(8, 145, 178, 0.35);
+  --scrollbar-thumb-hover: rgba(8, 145, 178, 0.65);
+  --orb-center:            #EEF4FF;
+  --center-panel-gradient: radial-gradient(circle at 50% 30%, rgba(8,145,178,0.07) 0%, rgba(238,244,255,0.96) 70%);
+  --primary:               #0891B2;
+  --primary-bg:            rgba(8, 145, 178, 0.08);
+  --primary-border:        rgba(8, 145, 178, 0.28);
+  --primary-border-faint:  rgba(8, 145, 178, 0.15);
+  --secondary:             #6D28D9;
+  --secondary-bg:          rgba(109, 40, 217, 0.08);
+  --secondary-border:      rgba(109, 40, 217, 0.22);
+  --msg-user-bg:           rgba(8, 145, 178, 0.06);
+  --msg-user-border:       rgba(8, 145, 178, 0.18);
+  --msg-ai-bg:             rgba(0, 0, 0, 0.03);
+  --msg-ai-border:         rgba(0, 0, 0, 0.08);
+  --msg-text:              #1E293B;
+  --modal-bg:              #FFFFFF;
+  --cap-item-bg:           rgba(0, 0, 0, 0.02);
+  --cap-item-border:       rgba(0, 0, 0, 0.05);
+  --scan-color:            rgba(8, 145, 178, 0.04);
+  --noise-opacity:         0.12;
+}
+
 body {
   margin: 0;
-  background-color: #050505;
-  color: #FFFFFF;
+  background-color: var(--bg);
+  color: var(--text-primary);
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Noise texture overlay */
@@ -29,7 +116,8 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 1000;
-  opacity: 0.35;
+  opacity: var(--noise-opacity);
+  transition: opacity 0.3s ease;
 }
 
 /* Scrollbar styling */
@@ -38,22 +126,23 @@ body::before {
   height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0A0A;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 240, 255, 0.3);
+  background: var(--scrollbar-thumb);
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 240, 255, 0.6);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Glass panel */
 .glass-panel {
-  background: linear-gradient(180deg, rgba(10, 10, 10, 0.9) 0%, rgba(5, 5, 5, 0.95) 100%);
+  background: var(--glass-panel-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 240, 255, 0.12);
+  border: 1px solid var(--glass-border);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 /* Corner accent */
@@ -66,7 +155,7 @@ body::before {
   position: absolute;
   width: 12px;
   height: 12px;
-  border-color: #00F0FF;
+  border-color: var(--corner-color);
   border-style: solid;
   opacity: 0.6;
 }
@@ -88,6 +177,10 @@ body::before {
 .status-closed { color: #9CA3AF; }
 .status-critical { color: #FF003C; text-shadow: 0 0 8px rgba(255,0,60,0.5); }
 
+/* Light mode: tone down status glows slightly */
+.light .status-open { color: #0891B2; text-shadow: 0 0 8px rgba(8,145,178,0.4); }
+.light .status-resolved { color: #059669; text-shadow: 0 0 8px rgba(5,150,105,0.4); }
+
 /* Waveform bars */
 @keyframes waveBar {
   0%, 100% { transform: scaleY(0.3); }
@@ -107,7 +200,7 @@ body::before {
 /* HUD grid line */
 .hud-line {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0,240,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, var(--primary-border-faint), transparent);
 }
 
 /* Scan effect */
@@ -121,10 +214,39 @@ body::before {
   left: 0;
   width: 100%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0,240,255,0.05), transparent);
+  background: linear-gradient(90deg, transparent, var(--scan-color), transparent);
   animation: scan 10s linear infinite;
   pointer-events: none;
   z-index: 999;
+}
+
+/* ── Light-mode Tailwind text overrides ── */
+/* Map dark-optimised grays to readable equivalents on light backgrounds */
+.light .text-white          { color: var(--text-primary) !important; }
+.light .text-gray-100       { color: #0F172A !important; }
+.light .text-gray-200       { color: #1E293B !important; }
+.light .text-gray-300       { color: #334155 !important; }
+.light .text-gray-400       { color: #475569 !important; }
+.light .text-gray-500       { color: #64748B !important; }
+.light .text-gray-600       { color: #94A3B8 !important; }
+.light .text-gray-700       { color: #CBD5E1 !important; }
+/* Tailwind cyan: map to darker teal */
+.light .text-cyan-400       { color: #0891B2 !important; }
+.light .text-cyan-500       { color: #0E7490 !important; }
+/* Yellow: stays readable on light bg but use amber variant */
+.light .text-yellow-400     { color: #B45309 !important; }
+/* bg-white utilities */
+.light .bg-white\/3         { background: rgba(0,0,0,0.04) !important; }
+.light .border-white\/5     { border-color: rgba(0,0,0,0.06) !important; }
+.light .border-white\/8     { border-color: rgba(0,0,0,0.08) !important; }
+/* Hover utilities */
+.light .hover\:bg-white\/5:hover { background: rgba(0,0,0,0.05) !important; }
+
+/* Theme transition for smooth switching */
+.glass-panel,
+header,
+.corner-accent {
+  transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 /* Lock desktop viewport — prevent page from scrolling when transcript grows */

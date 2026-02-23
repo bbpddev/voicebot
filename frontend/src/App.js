@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
-import { Shield, Cpu, Activity, ChevronRight, ExternalLink, AlertTriangle, Settings } from 'lucide-react';
+import { Shield, Cpu, Activity, ChevronRight, ExternalLink, AlertTriangle, Settings, Sun, Moon } from 'lucide-react';
 import { VoiceOrb } from './components/VoiceOrb';
 import { TranscriptFeed } from './components/TranscriptFeed';
 import { TicketsPanel } from './components/TicketsPanel';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
+import { useTheme } from './context/ThemeContext';
 import './App.css';
 
 const TABS = [
@@ -50,6 +51,7 @@ export default function App() {
   const [ticketRefresh, setTicketRefresh] = useState(0);
   const [isIframe, setIsIframe] = useState(false);
   const [agentName, setAgentName] = useState('REX');
+  const { isDark, toggleTheme } = useTheme();
 
   useEffect(() => {
     try { setIsIframe(window !== window.top); } catch (e) { setIsIframe(true); }
@@ -63,7 +65,7 @@ export default function App() {
   const onTicketsChange = useCallback(() => {
     setTicketRefresh(n => n + 1);
     toast.success('Ticket updated', {
-      style: { background: '#0a0a0a', border: '1px solid rgba(0,255,148,0.3)', color: '#00FF94' },
+      style: { background: 'var(--surface-solid)', border: '1px solid rgba(0,255,148,0.3)', color: '#00FF94' },
     });
   }, []);
 
@@ -73,7 +75,7 @@ export default function App() {
   useEffect(() => {
     if (error && error !== 'IFRAME_MIC_BLOCKED') {
       toast.error(error, {
-        style: { background: '#0a0a0a', border: '1px solid rgba(255,0,60,0.3)', color: '#FF003C' },
+        style: { background: 'var(--surface-solid)', border: '1px solid rgba(255,0,60,0.3)', color: '#FF003C' },
       });
     }
   }, [error]);
@@ -82,7 +84,11 @@ export default function App() {
   const showIframeMicError = error === 'IFRAME_MIC_BLOCKED';
 
   return (
-    <div className="min-h-screen lg:h-screen lg:flex lg:flex-col lg:overflow-hidden" style={{ background: '#050505' }} data-testid="app-container">
+    <div
+      className="min-h-screen lg:h-screen lg:flex lg:flex-col lg:overflow-hidden"
+      style={{ background: 'var(--bg)', transition: 'background 0.3s ease' }}
+      data-testid="app-container"
+    >
       {/* Scan line effect */}
       <div className="scan-line" />
 
@@ -99,23 +105,23 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
             data-testid="iframe-mic-modal"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               className="max-w-md w-full rounded-xl p-8 text-center corner-accent"
-              style={{ background: '#0a0a0a', border: '1px solid rgba(255,214,0,0.3)' }}
+              style={{ background: 'var(--modal-bg)', border: '1px solid rgba(255,214,0,0.3)' }}
             >
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
                 style={{ background: 'rgba(255,214,0,0.1)', border: '1px solid rgba(255,214,0,0.3)' }}>
                 <AlertTriangle size={28} color="#FFD600" />
               </div>
-              <h2 className="font-heading text-lg text-white uppercase tracking-widest mb-2">
+              <h2 className="font-heading text-lg uppercase tracking-widest mb-2" style={{ color: 'var(--text-primary)' }}>
                 Microphone Blocked
               </h2>
-              <p className="font-mono text-sm text-gray-400 leading-relaxed mb-6">
+              <p className="font-mono text-sm leading-relaxed mb-6" style={{ color: 'var(--text-muted)' }}>
                 The embedded preview cannot access your microphone due to browser security restrictions.
                 Open the app in a new tab to use the voice agent.
               </p>
@@ -126,14 +132,15 @@ export default function App() {
                   rel="noopener noreferrer"
                   data-testid="modal-open-tab-btn"
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-heading text-sm uppercase tracking-widest transition-all hover:opacity-80"
-                  style={{ background: 'rgba(0,240,255,0.1)', color: '#00F0FF', border: '1px solid rgba(0,240,255,0.3)' }}
+                  style={{ background: 'var(--primary-bg)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}
                 >
                   <ExternalLink size={14} />
                   Open in New Tab
                 </a>
                 <button
                   onClick={() => { disconnect(); }}
-                  className="font-mono text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                  className="font-mono text-xs transition-colors"
+                  style={{ color: 'var(--text-faint)' }}
                 >
                   Dismiss
                 </button>
@@ -144,7 +151,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="border-b" style={{ borderColor: 'rgba(0,240,255,0.08)', background: 'rgba(5,5,5,0.95)' }}>
+      <header className="border-b" style={{ borderColor: 'var(--header-border)', background: 'var(--header-bg)', transition: 'background 0.3s ease, border-color 0.3s ease' }}>
         <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center gap-4">
           <motion.div
             className="flex items-center gap-3"
@@ -152,26 +159,41 @@ export default function App() {
             animate={{ opacity: 1, x: 0 }}
           >
             <div className="w-8 h-8 rounded flex items-center justify-center"
-              style={{ background: 'rgba(0,240,255,0.1)', border: '1px solid rgba(0,240,255,0.3)' }}>
-              <Activity size={16} color="#00F0FF" />
+              style={{ background: 'var(--primary-bg)', border: '1px solid var(--primary-border)' }}>
+              <Activity size={16} style={{ color: 'var(--primary)' }} />
             </div>
             <div>
-              <h1 className="font-heading text-sm tracking-widest text-white uppercase" data-testid="app-title">
+              <h1 className="font-heading text-sm tracking-widest uppercase" style={{ color: 'var(--text-primary)' }} data-testid="app-title">
                 IT Service Desk
               </h1>
-              <p className="font-mono text-xs text-gray-600" style={{ fontSize: '10px' }}>
+              <p className="font-mono" style={{ fontSize: '10px', color: 'var(--text-faint)' }}>
                 Voice Agent // Real-time Voice API
               </p>
             </div>
           </motion.div>
 
-          {/* Status indicator */}
+          {/* Right side: status + theme toggle + admin */}
           <div className="ml-auto flex items-center gap-3">
+            {/* Theme toggle button */}
+            <motion.button
+              onClick={toggleTheme}
+              data-testid="theme-toggle-btn"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+              style={{ background: 'var(--primary-bg)', border: '1px solid var(--primary-border)' }}
+              whileTap={{ scale: 0.92 }}
+              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDark
+                ? <Sun size={14} style={{ color: 'var(--primary)' }} />
+                : <Moon size={14} style={{ color: 'var(--primary)' }} />
+              }
+            </motion.button>
+
             <a
               href="/admin"
               data-testid="admin-link"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-xs transition-all hover:opacity-80"
-              style={{ background: 'rgba(112,0,255,0.08)', color: '#7000FF', border: '1px solid rgba(112,0,255,0.2)' }}
+              style={{ background: 'var(--secondary-bg)', color: 'var(--secondary)', border: '1px solid var(--secondary-border)' }}
             >
               <Settings size={11} />
               Admin
@@ -184,12 +206,12 @@ export default function App() {
                   boxShadow: isActive ? '0 0 8px #00FF94' : 'none',
                 }}
               />
-              <span className="font-mono text-xs text-gray-500 uppercase tracking-wider">
+              <span className="font-mono text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 {isActive ? 'Session Active' : 'Offline'}
               </span>
               {isActive && (
                 <span className="font-mono text-xs px-2 py-0.5 rounded"
-                  style={{ color: '#00F0FF', background: 'rgba(0,240,255,0.08)', border: '1px solid rgba(0,240,255,0.2)', fontSize: '10px' }}>
+                  style={{ color: 'var(--primary)', background: 'var(--primary-bg)', border: '1px solid var(--primary-border-faint)', fontSize: '10px' }}>
                   {agentName} AI
                 </span>
               )}
@@ -211,7 +233,7 @@ export default function App() {
             transition={{ delay: 0.1 }}
           >
             {/* Tab switcher */}
-            <div className="flex gap-1 mb-5 p-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex gap-1 mb-5 p-1 rounded-lg" style={{ background: 'var(--tab-container-bg)' }}>
               {TABS.map(tab => {
                 const TabIcon = tab.icon;
                 return (
@@ -222,8 +244,8 @@ export default function App() {
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md font-heading text-xs uppercase tracking-wider transition-all"
                     style={
                       activeTab === tab.id
-                        ? { background: 'rgba(0,240,255,0.1)', color: '#00F0FF', border: '1px solid rgba(0,240,255,0.25)' }
-                        : { background: 'transparent', color: '#6B7280', border: '1px solid transparent' }
+                        ? { background: 'var(--primary-bg)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }
+                        : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent' }
                     }
                   >
                     <TabIcon size={11} />
@@ -251,7 +273,7 @@ export default function App() {
           {/* CENTER — Voice Agent */}
           <motion.div
             className="lg:col-span-4 glass-panel corner-accent rounded-xl p-6 flex flex-col items-center justify-center gap-8 lg:min-h-0"
-            style={{ minHeight: '600px', background: 'radial-gradient(circle at 50% 30%, rgba(0,240,255,0.04) 0%, rgba(5,5,5,0.95) 70%)' }}
+            style={{ minHeight: '600px', background: 'var(--center-panel-gradient)' }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -259,10 +281,10 @@ export default function App() {
             {/* Title */}
             <div className="text-center">
               <div className="hud-line w-32 mx-auto mb-3" />
-              <h2 className="font-heading text-2xl text-white tracking-widest uppercase" data-testid="agent-name">
+              <h2 className="font-heading text-2xl tracking-widest uppercase" style={{ color: 'var(--text-primary)' }} data-testid="agent-name">
                 {agentName}
               </h2>
-              <p className="font-sub text-sm text-gray-500 tracking-widest mt-1">
+              <p className="font-sub text-sm tracking-widest mt-1" style={{ color: 'var(--text-muted)' }}>
                 Your friendly AI Assistant
               </p>
               <div className="hud-line w-32 mx-auto mt-3" />
@@ -279,15 +301,15 @@ export default function App() {
             {/* Capabilities */}
             <div className="w-full space-y-1.5" data-testid="capabilities-list">
               {[
-                { label: 'Troubleshoot Issues', color: '#00F0FF' },
-                { label: 'Create Support Tickets', color: '#7000FF' },
+                { label: 'Troubleshoot Issues', color: 'var(--primary)' },
+                { label: 'Create Support Tickets', color: 'var(--secondary)' },
                 { label: 'Search Knowledge Base', color: '#00FF94' },
                 { label: 'Track Ticket Status', color: '#FFD600' },
               ].map((cap) => (
                 <div key={cap.label} className="flex items-center gap-2 px-3 py-1.5 rounded"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  style={{ background: 'var(--cap-item-bg)', border: '1px solid var(--cap-item-border)' }}>
                   <ChevronRight size={10} style={{ color: cap.color }} />
-                  <span className="font-mono text-xs text-gray-500">{cap.label}</span>
+                  <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{cap.label}</span>
                 </div>
               ))}
             </div>
