@@ -6,6 +6,7 @@ import {
   Flame, Users, UserPlus
 } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -56,18 +57,33 @@ export function TicketsPanel({ refreshTrigger }) {
 
   useEffect(() => { fetchTickets(); fetchPriorities(); }, [fetchTickets, fetchPriorities, refreshTrigger]);
 
+  // Fallback polling so newly created tickets always appear even if the
+  // function.executed WebSocket event is missed (e.g. during reconnect).
+  useEffect(() => {
+    const interval = setInterval(fetchTickets, 10000);
+    return () => clearInterval(interval);
+  }, [fetchTickets]);
+
   const updateStatus = async (ticketId, status) => {
     try {
       await axios.patch(`${API}/api/tickets/${ticketId}`, { status });
       fetchTickets();
-    } catch (e) {}
+    } catch (e) {
+      toast.error(`Failed to update ${ticketId}`, {
+        style: { background: 'var(--surface-solid)', border: '1px solid rgba(255,0,60,0.3)', color: '#FF003C' },
+      });
+    }
   };
 
   const deleteTicket = async (ticketId) => {
     try {
       await axios.delete(`${API}/api/tickets/${ticketId}`);
       fetchTickets();
-    } catch (e) {}
+    } catch (e) {
+      toast.error(`Failed to delete ${ticketId}`, {
+        style: { background: 'var(--surface-solid)', border: '1px solid rgba(255,0,60,0.3)', color: '#FF003C' },
+      });
+    }
   };
 
   const filters = ['all', 'open', 'in_progress', 'resolved', 'closed'];
@@ -133,7 +149,7 @@ export function TicketsPanel({ refreshTrigger }) {
 
             return (
               <motion.div
-                key={ticket.ticket_id}
+                key={ticket._id || ticket.ticket_id}
                 layout
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}

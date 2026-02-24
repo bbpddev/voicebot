@@ -154,6 +154,7 @@ network, software, hardware, access, email, general
 ---
 
 RULES:
+- You MUST call the create_ticket function before confirming any ticket was created. Never tell the user a ticket was created unless the function returned a successful result with a real ticket ID.
 - Never fabricate troubleshooting steps. Only use knowledge base content.
 - Always confirm the ticket number immediately after creation — never defer this.
 - Always wait for user confirmation before moving to the next troubleshooting step.
@@ -283,43 +284,55 @@ TOOLS = [
 
 # --- Function Handlers ---
 async def handle_create_ticket(args: dict) -> dict:
-    # Derive next ticket number from the highest existing ID to avoid
-    # collisions when tickets have been deleted (count_documents can drift).
-    last = await tickets_col.find_one(
-        {"ticket_id": {"$regex": r"^TKT-\d+$"}},
-        sort=[("ticket_id", -1)],
-        projection={"ticket_id": 1},
-    )
-    if last:
-        try:
-            last_num = int(last["ticket_id"].split("-")[1])
-        except (ValueError, IndexError):
-            last_num = await tickets_col.count_documents({})
-    else:
-        last_num = 0
-
-    ticket_id = f"TKT-{last_num + 1:03d}"
-    doc = {
-        "ticket_id": ticket_id,
-        "title": args["title"],
-        "description": args["description"],
-        "priority": args.get("priority", "medium"),
-        "category": args.get("category", "general"),
-        "status": "open",
-        "user": "Voice Agent User",
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
-        "resolution": None,
-    }
+    # Derive next ticket number by scanning all TKT-NNN IDs and finding the
+    # highest numeric value.  We use a cursor (not find_one+sort) so the sort
+    # is explicit and not subject to Motor/PyMongo version differences.
+    last_num = 0
     try:
-        await tickets_col.insert_one(doc)
-    except Exception as e:
-        return {"success": False, "message": f"Failed to create ticket: {str(e)}"}
-    return {
-        "success": True,
-        "ticket_id": ticket_id,
-        "message": f"Ticket {ticket_id} created successfully. Title: {args['title']}. Priority: {args.get('priority', 'medium')}.",
-    }
+        cursor = tickets_col.find(
+            {"ticket_id": {"$regex": r"^TKT-\d+$"}},
+            projection={"ticket_id": 1},
+        )
+        async for doc in cursor:
+            try:
+                n = int(doc["ticket_id"].split("-")[1])
+                if n > last_num:
+                    last_num = n
+            except (ValueError, IndexError):
+                pass
+    except Exception:
+        pass
+
+    # Retry up to 3 times in case a concurrent call grabs the same ID
+    # (the unique index on ticket_id will reject duplicates).
+    for attempt in range(3):
+        ticket_id = f"TKT-{last_num + 1 + attempt:03d}"
+        now = datetime.now(timezone.utc)
+        doc = {
+            "ticket_id": ticket_id,
+            "title": args["title"],
+            "description": args["description"],
+            "priority": args.get("priority", "medium"),
+            "category": args.get("category", "general"),
+            "status": "open",
+            "user": "Voice Agent User",
+            "created_at": now,
+            "updated_at": now,
+            "resolution": None,
+        }
+        try:
+            await tickets_col.insert_one(doc)
+            return {
+                "success": True,
+                "ticket_id": ticket_id,
+                "message": f"Ticket {ticket_id} created successfully. Title: {args['title']}. Priority: {args.get('priority', 'medium')}.",
+            }
+        except Exception as e:
+            if "duplicate key" in str(e).lower() and attempt < 2:
+                continue
+            return {"success": False, "message": f"Failed to create ticket: {str(e)}"}
+
+    return {"success": False, "message": "Failed to create ticket after multiple attempts."}
 
 
 async def handle_search_knowledge_base(args: dict) -> dict:

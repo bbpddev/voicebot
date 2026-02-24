@@ -62,9 +62,15 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  const onTicketsChange = useCallback(() => {
+  const onTicketsChange = useCallback((funcName) => {
     setTicketRefresh(n => n + 1);
-    toast.success('Ticket updated', {
+    const messages = {
+      create_ticket: 'Ticket created',
+      update_ticket_status: 'Ticket updated',
+      add_me_to_priority_incident: 'Impact reported',
+      list_priority_incidents: 'Incidents refreshed',
+    };
+    toast.success(messages[funcName] || 'Dashboard updated', {
       style: { background: 'var(--surface-solid)', border: '1px solid rgba(0,255,148,0.3)', color: '#00FF94' },
     });
   }, []);
