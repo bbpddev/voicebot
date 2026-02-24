@@ -107,7 +107,7 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         role: 'user',
         content: [{
           type: 'input_text',
-          text: '[System: The voice session was briefly interrupted and has now reconnected. Resume the conversation naturally from where you left off. Do not re-greet the user or ask them to repeat themselves. If there was a pending action, complete it.]',
+          text: '[System: The voice session was briefly interrupted and has now reconnected. Resume the conversation naturally from where you left off. Do not re-greet the user or ask them to repeat themselves. Do NOT assume any previous actions (such as ticket creation) were completed — if the user was in the middle of a request, ask them to confirm or repeat it so you can call the appropriate function properly.]',
         }],
       },
     }));

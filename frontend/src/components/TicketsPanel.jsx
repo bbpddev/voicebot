@@ -56,6 +56,13 @@ export function TicketsPanel({ refreshTrigger }) {
 
   useEffect(() => { fetchTickets(); fetchPriorities(); }, [fetchTickets, fetchPriorities, refreshTrigger]);
 
+  // Fallback polling so newly created tickets always appear even if the
+  // function.executed WebSocket event is missed (e.g. during reconnect).
+  useEffect(() => {
+    const interval = setInterval(fetchTickets, 10000);
+    return () => clearInterval(interval);
+  }, [fetchTickets]);
+
   const updateStatus = async (ticketId, status) => {
     try {
       await axios.patch(`${API}/api/tickets/${ticketId}`, { status });

@@ -119,7 +119,7 @@ WORKFLOW FOR USER ISSUES:
 TICKET PRIORITIES: low (minor inconvenience), medium (work impacted), high (cannot work), critical (business-critical outage)
 TICKET CATEGORIES: network, software, hardware, access, email, general
 
-Always confirm ticket creation with the ticket ID (e.g., "I've created ticket TKT-007 for you").
+IMPORTANT: You MUST call the create_ticket function before confirming any ticket was created. Never tell the user a ticket was created unless the create_ticket function returned a successful result with a real ticket ID. Always confirm with the actual ticket ID returned by the function.
 When adding a user to a P1/P2 incident, confirm with the incident ID and current impacted count.
 Be concise - this is a voice interface. Keep responses under 3-4 sentences.
 Start by greeting the user and asking how you can help with IT today."""
@@ -247,20 +247,24 @@ TOOLS = [
 
 # --- Function Handlers ---
 async def handle_create_ticket(args: dict) -> dict:
-    # Derive next ticket number from the highest existing ID to avoid
-    # collisions when tickets have been deleted (count_documents can drift).
-    last = await tickets_col.find_one(
-        {"ticket_id": {"$regex": r"^TKT-\d+$"}},
-        sort=[("ticket_id", -1)],
-        projection={"ticket_id": 1},
-    )
-    if last:
-        try:
-            last_num = int(last["ticket_id"].split("-")[1])
-        except (ValueError, IndexError):
-            last_num = await tickets_col.count_documents({})
-    else:
-        last_num = 0
+    # Derive next ticket number by scanning all TKT-NNN IDs and finding the
+    # highest numeric value.  We use a cursor (not find_one+sort) so the sort
+    # is explicit and not subject to Motor/PyMongo version differences.
+    last_num = 0
+    try:
+        cursor = tickets_col.find(
+            {"ticket_id": {"$regex": r"^TKT-\d+$"}},
+            projection={"ticket_id": 1},
+        )
+        async for doc in cursor:
+            try:
+                n = int(doc["ticket_id"].split("-")[1])
+                if n > last_num:
+                    last_num = n
+            except (ValueError, IndexError):
+                pass
+    except Exception:
+        pass
 
     ticket_id = f"TKT-{last_num + 1:03d}"
     doc = {
