@@ -266,28 +266,36 @@ async def handle_create_ticket(args: dict) -> dict:
     except Exception:
         pass
 
-    ticket_id = f"TKT-{last_num + 1:03d}"
-    doc = {
-        "ticket_id": ticket_id,
-        "title": args["title"],
-        "description": args["description"],
-        "priority": args.get("priority", "medium"),
-        "category": args.get("category", "general"),
-        "status": "open",
-        "user": "Voice Agent User",
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
-        "resolution": None,
-    }
-    try:
-        await tickets_col.insert_one(doc)
-    except Exception as e:
-        return {"success": False, "message": f"Failed to create ticket: {str(e)}"}
-    return {
-        "success": True,
-        "ticket_id": ticket_id,
-        "message": f"Ticket {ticket_id} created successfully. Title: {args['title']}. Priority: {args.get('priority', 'medium')}.",
-    }
+    # Retry up to 3 times in case a concurrent call grabs the same ID
+    # (the unique index on ticket_id will reject duplicates).
+    for attempt in range(3):
+        ticket_id = f"TKT-{last_num + 1 + attempt:03d}"
+        now = datetime.now(timezone.utc)
+        doc = {
+            "ticket_id": ticket_id,
+            "title": args["title"],
+            "description": args["description"],
+            "priority": args.get("priority", "medium"),
+            "category": args.get("category", "general"),
+            "status": "open",
+            "user": "Voice Agent User",
+            "created_at": now,
+            "updated_at": now,
+            "resolution": None,
+        }
+        try:
+            await tickets_col.insert_one(doc)
+            return {
+                "success": True,
+                "ticket_id": ticket_id,
+                "message": f"Ticket {ticket_id} created successfully. Title: {args['title']}. Priority: {args.get('priority', 'medium')}.",
+            }
+        except Exception as e:
+            if "duplicate key" in str(e).lower() and attempt < 2:
+                continue
+            return {"success": False, "message": f"Failed to create ticket: {str(e)}"}
+
+    return {"success": False, "message": "Failed to create ticket after multiple attempts."}
 
 
 async def handle_search_knowledge_base(args: dict) -> dict:

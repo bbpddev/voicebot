@@ -256,10 +256,18 @@ function KBSearchBody({ args, result }) {
 }
 
 function CreateTicketBody({ result }) {
+  if (!result.success) {
+    return (
+      <div className="space-y-1">
+        <Step label="Status" value="Failed" color="#FF003C" />
+        <Step label="Error" value={result.message || 'Unknown error'} color="#FF003C" />
+      </div>
+    );
+  }
   return (
     <div className="space-y-1">
       <Step label="Ticket ID" value={result.ticket_id} color="#00FF94" />
-      <Step label="Status" value={result.success ? 'Created' : 'Failed'} color={result.success ? '#00FF94' : '#FF003C'} />
+      <Step label="Status" value="Created" color="#00FF94" />
     </div>
   );
 }
