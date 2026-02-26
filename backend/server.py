@@ -5,7 +5,7 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Annotated, List, Optional
 
 import httpx
@@ -15,9 +15,12 @@ from bson import ObjectId
 from docx import Document as DocxDocument
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from motor.motor_asyncio import AsyncIOMotorClient
+from passlib.context import CryptContext
+from jose import JWTError, jwt
 from pydantic import BaseModel, BeforeValidator, Field
 
 load_dotenv()
@@ -32,6 +35,14 @@ XAI_REALTIME_URL = "wss://api.x.ai/v1/realtime"
 # OpenAI async client (replaces emergentintegrations)
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
+# --- Auth Config ---
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me-in-production-use-a-strong-random-secret")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_DAYS = 7
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer(auto_error=False)
+
 # --- MongoDB ---
 mongo_client = AsyncIOMotorClient(MONGO_URL)
 db = mongo_client[DB_NAME]
@@ -39,6 +50,7 @@ tickets_col = db["tickets"]
 kb_col = db["knowledge_base"]
 config_col = db["config"]
 priority_incidents_col = db["priority_incidents"]
+users_col = db["users"]
 
 # --- PyObjectId helper ---
 def validate_object_id(v: Any) -> str:
@@ -84,6 +96,54 @@ class AgentConfig(BaseModel):
     system_prompt: str
     voice: str = "Rex"
     agent_name: str = "Rex"
+
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    name: str
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+# --- Auth Utilities ---
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    to_encode["exp"] = expire
+    return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = await users_col.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
 
 
 # --- FastAPI ---
@@ -489,6 +549,45 @@ FUNCTION_HANDLERS = {
     "list_priority_incidents": handle_list_priority_incidents,
     "add_me_to_priority_incident": handle_add_me_to_priority_incident,
 }
+
+
+# --- Auth Endpoints ---
+@app.post("/api/auth/signup", response_model=Token)
+async def signup(user_data: UserCreate):
+    if not user_data.email or "@" not in user_data.email:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    if len(user_data.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    existing = await users_col.find_one({"email": user_data.email.lower().strip()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    doc = {
+        "email": user_data.email.lower().strip(),
+        "password": hash_password(user_data.password),
+        "name": user_data.name.strip(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = await users_col.insert_one(doc)
+    token = create_access_token({"sub": str(result.inserted_id)})
+    return Token(access_token=token, token_type="bearer")
+
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(user_data: UserLogin):
+    user = await users_col.find_one({"email": user_data.email.lower().strip()})
+    if not user or not verify_password(user_data.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = create_access_token({"sub": str(user["_id"])})
+    return Token(access_token=token, token_type="bearer")
+
+
+@app.get("/api/auth/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    return {
+        "id": str(current_user["_id"]),
+        "email": current_user["email"],
+        "name": current_user["name"],
+    }
 
 
 # --- WebSocket Proxy ---
