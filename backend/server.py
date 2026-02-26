@@ -114,6 +114,18 @@ class Token(BaseModel):
     token_type: str
 
 
+class UserAdminCreate(BaseModel):
+    email: str
+    password: str
+    name: str
+
+
+class UserAdminUpdate(BaseModel):
+    email: Optional[str] = None
+    password: Optional[str] = None
+    name: Optional[str] = None
+
+
 # --- Auth Utilities ---
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -895,6 +907,73 @@ async def update_config(config: AgentConfig):
 async def reset_config():
     await config_col.delete_one({"key": "agent_config"})
     return {"success": True, "system_prompt": DEFAULT_SYSTEM_PROMPT, "voice": "Rex", "agent_name": "Rex"}
+
+
+# --- REST: Admin User Management ---
+@app.get("/api/admin/users")
+async def list_users(current_user: dict = Depends(get_current_user)):
+    users = []
+    async for u in users_col.find({}, {"password": 0}):
+        users.append({
+            "id": str(u["_id"]),
+            "email": u["email"],
+            "name": u["name"],
+            "created_at": u.get("created_at", ""),
+        })
+    return users
+
+
+@app.post("/api/admin/users", status_code=201)
+async def admin_create_user(user_data: UserAdminCreate, current_user: dict = Depends(get_current_user)):
+    if not user_data.email or "@" not in user_data.email:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    if len(user_data.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    existing = await users_col.find_one({"email": user_data.email.lower().strip()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    doc = {
+        "email": user_data.email.lower().strip(),
+        "password": hash_password(user_data.password),
+        "name": user_data.name.strip(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = await users_col.insert_one(doc)
+    return {"id": str(result.inserted_id), "email": doc["email"], "name": doc["name"], "created_at": doc["created_at"]}
+
+
+@app.put("/api/admin/users/{user_id}")
+async def admin_update_user(user_id: str, update: UserAdminUpdate, current_user: dict = Depends(get_current_user)):
+    update_doc = {}
+    if update.name is not None:
+        update_doc["name"] = update.name.strip()
+    if update.email is not None:
+        if "@" not in update.email:
+            raise HTTPException(status_code=400, detail="Invalid email address")
+        existing = await users_col.find_one({"email": update.email.lower().strip(), "_id": {"$ne": ObjectId(user_id)}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        update_doc["email"] = update.email.lower().strip()
+    if update.password is not None:
+        if len(update.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+        update_doc["password"] = hash_password(update.password)
+    if not update_doc:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    result = await users_col.update_one({"_id": ObjectId(user_id)}, {"$set": update_doc})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"success": True}
+
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if str(current_user["_id"]) == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    result = await users_col.delete_one({"_id": ObjectId(user_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"success": True}
 
 
 @app.post("/api/kb/upload")
