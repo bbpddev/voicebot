@@ -766,7 +766,17 @@ function UserRow({ user, idx, onEdit, onDelete }) {
       data-testid={`user-row-${user.id}`}
     >
       <td className="px-4 py-3">
-        <span className="font-body text-sm text-gray-200">{user.name}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-body text-sm text-gray-200">{user.name}</span>
+          {user.is_admin && (
+            <span
+              className="font-heading text-xs px-1.5 py-0.5 rounded uppercase tracking-wider"
+              style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', fontSize: '9px' }}
+            >
+              Admin
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3">
         <span className="font-mono text-xs text-gray-400">{user.email}</span>
@@ -805,6 +815,7 @@ function UserModal({ user, authHeaders, onClose, onSaved }) {
     name: user?.name || '',
     email: user?.email || '',
     password: '',
+    is_admin: user?.is_admin || false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -820,6 +831,7 @@ function UserModal({ user, authHeaders, onClose, onSaved }) {
           name: form.name.trim(),
           email: form.email.trim(),
           password: form.password,
+          is_admin: form.is_admin,
         }, { headers: authHeaders });
         toast.success('User created');
       } else {
@@ -827,6 +839,7 @@ function UserModal({ user, authHeaders, onClose, onSaved }) {
         if (form.name.trim() !== user.name) payload.name = form.name.trim();
         if (form.email.trim() !== user.email) payload.email = form.email.trim();
         if (form.password) payload.password = form.password;
+        if (form.is_admin !== user.is_admin) payload.is_admin = form.is_admin;
         if (Object.keys(payload).length === 0) { toast('No changes to save'); onClose(); return; }
         await axios.put(`${API}/api/admin/users/${user.id}`, payload, { headers: authHeaders });
         toast.success('User updated');
@@ -916,6 +929,27 @@ function UserModal({ user, authHeaders, onClose, onSaved }) {
               >
                 {showPassword ? <EyeOff size={14} color="#6B7280" /> : <Eye size={14} color="#6B7280" />}
               </button>
+            </div>
+          </div>
+
+          {/* Admin toggle */}
+          <div
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer"
+            style={{ background: form.is_admin ? 'rgba(139,92,246,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${form.is_admin ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.06)'}` }}
+            onClick={() => setForm(p => ({ ...p, is_admin: !p.is_admin }))}
+          >
+            <div>
+              <p className="font-heading text-xs uppercase tracking-wider" style={{ color: form.is_admin ? '#a78bfa' : '#6B7280' }}>Admin Access</p>
+              <p className="font-mono text-xs mt-0.5" style={{ color: '#4B5563' }}>Can manage users, config, and KB</p>
+            </div>
+            <div
+              className="w-9 h-5 rounded-full relative transition-colors"
+              style={{ background: form.is_admin ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.1)' }}
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                style={{ background: form.is_admin ? '#a78bfa' : '#4B5563', left: form.is_admin ? '18px' : '2px' }}
+              />
             </div>
           </div>
 

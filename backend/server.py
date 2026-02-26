@@ -30,6 +30,9 @@ MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 XAI_API_KEY = os.environ.get("XAI_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+ADMIN_NAME = os.environ.get("ADMIN_NAME", "Admin")
 XAI_REALTIME_URL = "wss://api.x.ai/v1/realtime"
 
 # OpenAI async client (replaces emergentintegrations)
@@ -118,12 +121,14 @@ class UserAdminCreate(BaseModel):
     email: str
     password: str
     name: str
+    is_admin: bool = False
 
 
 class UserAdminUpdate(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None
     name: Optional[str] = None
+    is_admin: Optional[bool] = None
 
 
 # --- Auth Utilities ---
@@ -156,6 +161,12 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+
+async def require_admin(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
 
 
 # --- FastAPI ---
@@ -564,24 +575,9 @@ FUNCTION_HANDLERS = {
 
 
 # --- Auth Endpoints ---
-@app.post("/api/auth/signup", response_model=Token)
-async def signup(user_data: UserCreate):
-    if not user_data.email or "@" not in user_data.email:
-        raise HTTPException(status_code=400, detail="Invalid email address")
-    if len(user_data.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-    existing = await users_col.find_one({"email": user_data.email.lower().strip()})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    doc = {
-        "email": user_data.email.lower().strip(),
-        "password": hash_password(user_data.password),
-        "name": user_data.name.strip(),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    result = await users_col.insert_one(doc)
-    token = create_access_token({"sub": str(result.inserted_id)})
-    return Token(access_token=token, token_type="bearer")
+@app.post("/api/auth/signup")
+async def signup():
+    raise HTTPException(status_code=403, detail="Self-registration is disabled. Contact your administrator.")
 
 
 @app.post("/api/auth/login", response_model=Token)
@@ -599,6 +595,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "id": str(current_user["_id"]),
         "email": current_user["email"],
         "name": current_user["name"],
+        "is_admin": current_user.get("is_admin", False),
     }
 
 
@@ -911,20 +908,21 @@ async def reset_config():
 
 # --- REST: Admin User Management ---
 @app.get("/api/admin/users")
-async def list_users(current_user: dict = Depends(get_current_user)):
+async def list_users(current_user: dict = Depends(require_admin)):
     users = []
     async for u in users_col.find({}, {"password": 0}):
         users.append({
             "id": str(u["_id"]),
             "email": u["email"],
             "name": u["name"],
+            "is_admin": u.get("is_admin", False),
             "created_at": u.get("created_at", ""),
         })
     return users
 
 
 @app.post("/api/admin/users", status_code=201)
-async def admin_create_user(user_data: UserAdminCreate, current_user: dict = Depends(get_current_user)):
+async def admin_create_user(user_data: UserAdminCreate, current_user: dict = Depends(require_admin)):
     if not user_data.email or "@" not in user_data.email:
         raise HTTPException(status_code=400, detail="Invalid email address")
     if len(user_data.password) < 8:
@@ -936,14 +934,15 @@ async def admin_create_user(user_data: UserAdminCreate, current_user: dict = Dep
         "email": user_data.email.lower().strip(),
         "password": hash_password(user_data.password),
         "name": user_data.name.strip(),
+        "is_admin": user_data.is_admin,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     result = await users_col.insert_one(doc)
-    return {"id": str(result.inserted_id), "email": doc["email"], "name": doc["name"], "created_at": doc["created_at"]}
+    return {"id": str(result.inserted_id), "email": doc["email"], "name": doc["name"], "is_admin": doc["is_admin"], "created_at": doc["created_at"]}
 
 
 @app.put("/api/admin/users/{user_id}")
-async def admin_update_user(user_id: str, update: UserAdminUpdate, current_user: dict = Depends(get_current_user)):
+async def admin_update_user(user_id: str, update: UserAdminUpdate, current_user: dict = Depends(require_admin)):
     update_doc = {}
     if update.name is not None:
         update_doc["name"] = update.name.strip()
@@ -958,6 +957,8 @@ async def admin_update_user(user_id: str, update: UserAdminUpdate, current_user:
         if len(update.password) < 8:
             raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
         update_doc["password"] = hash_password(update.password)
+    if update.is_admin is not None:
+        update_doc["is_admin"] = update.is_admin
     if not update_doc:
         raise HTTPException(status_code=400, detail="No fields to update")
     result = await users_col.update_one({"_id": ObjectId(user_id)}, {"$set": update_doc})
@@ -967,7 +968,7 @@ async def admin_update_user(user_id: str, update: UserAdminUpdate, current_user:
 
 
 @app.delete("/api/admin/users/{user_id}")
-async def admin_delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+async def admin_delete_user(user_id: str, current_user: dict = Depends(require_admin)):
     if str(current_user["_id"]) == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
     result = await users_col.delete_one({"_id": ObjectId(user_id)})
@@ -1250,6 +1251,29 @@ async def startup_event():
                 await tickets_col.insert_one(ticket.copy())
             except Exception:
                 pass
+
+    # Ensure sw75489@gmail.com is always an admin
+    await users_col.update_one(
+        {"email": "sw75489@gmail.com"},
+        {"$set": {"is_admin": True}},
+    )
+
+    # Seed admin user from env vars or upgrade existing user to admin
+    if ADMIN_EMAIL and ADMIN_PASSWORD:
+        existing_admin = await users_col.find_one({"email": ADMIN_EMAIL.lower().strip()})
+        if existing_admin:
+            await users_col.update_one(
+                {"_id": existing_admin["_id"]},
+                {"$set": {"is_admin": True, "password": hash_password(ADMIN_PASSWORD)}}
+            )
+        else:
+            await users_col.insert_one({
+                "email": ADMIN_EMAIL.lower().strip(),
+                "password": hash_password(ADMIN_PASSWORD),
+                "name": ADMIN_NAME,
+                "is_admin": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
 
     # Seed Priority Incidents — upsert so they always exist
     for inc in PRIORITY_INCIDENT_SEED:
