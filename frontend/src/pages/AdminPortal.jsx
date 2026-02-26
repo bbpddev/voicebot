@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings, BookOpen, Save, RotateCcw, ChevronLeft,
-  Plus, Pencil, Trash2, X, Check, Tag, Info, Mic
+  Plus, Pencil, Trash2, X, Check, Tag, Info, Mic, Users, Eye, EyeOff
 } from 'lucide-react';
 import axios from 'axios';
 import { Toaster, toast } from 'sonner';
@@ -23,10 +23,16 @@ export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState('prompt');
   const [config, setConfig] = useState(null);
   const [articles, setArticles] = useState([]);
+  const [users, setUsers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [editingArticle, setEditingArticle] = useState(null);
   const [showNewArticle, setShowNewArticle] = useState(false);
   const [promptDirty, setPromptDirty] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [showNewUser, setShowNewUser] = useState(false);
+
+  const authToken = localStorage.getItem('auth_token');
+  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
   const loadConfig = useCallback(async () => {
     try {
@@ -47,10 +53,22 @@ export default function AdminPortal() {
     }
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API}/api/admin/users`, { headers });
+      setUsers(res.data);
+    } catch (e) {
+      toast.error('Failed to load users');
+    }
+  }, []);
+
   useEffect(() => {
     loadConfig();
     loadArticles();
-  }, [loadConfig, loadArticles]);
+    loadUsers();
+  }, [loadConfig, loadArticles, loadUsers]);
 
   const saveConfig = async () => {
     setSaving(true);
@@ -123,6 +141,7 @@ export default function AdminPortal() {
           {[
             { id: 'prompt', label: 'Voice Agent Config', icon: Settings },
             { id: 'kb', label: 'Knowledge Base', icon: BookOpen },
+            { id: 'users', label: 'Users', icon: Users },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -157,7 +176,7 @@ export default function AdminPortal() {
                 onReset={resetPrompt}
               />
             </motion.div>
-          ) : (
+          ) : activeTab === 'kb' ? (
             <motion.div key="kb" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <KBEditor
                 articles={articles}
@@ -166,6 +185,18 @@ export default function AdminPortal() {
                 setEditingArticle={setEditingArticle}
                 showNewArticle={showNewArticle}
                 setShowNewArticle={setShowNewArticle}
+              />
+            </motion.div>
+          ) : (
+            <motion.div key="users" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <UsersEditor
+                users={users}
+                onRefresh={loadUsers}
+                authHeaders={authHeaders}
+                editingUser={editingUser}
+                setEditingUser={setEditingUser}
+                showNewUser={showNewUser}
+                setShowNewUser={setShowNewUser}
               />
             </motion.div>
           )}
@@ -616,6 +647,295 @@ function ArticleModal({ article, onClose, onSaved }) {
             <button
               onClick={onClose}
               data-testid="cancel-modal-btn"
+              className="px-5 py-2.5 rounded-lg font-mono text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ---- Users Editor ----
+function UsersEditor({ users, onRefresh, authHeaders, editingUser, setEditingUser, showNewUser, setShowNewUser }) {
+  const [search, setSearch] = useState('');
+
+  const filtered = users.filter(u =>
+    !search ||
+    u.name.toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-3 pr-3 py-2 rounded-lg font-mono text-xs border focus:outline-none"
+            style={{ background: '#0d0d14', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)', WebkitTextFillColor: '#e2e8f0' }}
+            data-testid="admin-users-search"
+          />
+        </div>
+        <span className="font-mono text-xs text-gray-600">{users.length} users</span>
+        <motion.button
+          onClick={() => { setShowNewUser(true); setEditingUser(null); }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          data-testid="new-user-btn"
+          className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg font-heading text-xs uppercase tracking-wider"
+          style={{ background: 'rgba(0,240,255,0.1)', color: '#00F0FF', border: '1px solid rgba(0,240,255,0.3)' }}
+        >
+          <Plus size={12} />
+          New User
+        </motion.button>
+      </div>
+
+      {/* Users table */}
+      <div className="glass-panel rounded-xl overflow-hidden">
+        <table className="w-full" data-testid="users-table">
+          <thead>
+            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              {['Name', 'Email', 'Created', 'Actions'].map(h => (
+                <th key={h} className="px-4 py-3 text-left font-heading text-xs text-gray-600 uppercase tracking-wider">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-8 text-center font-mono text-xs text-gray-600">
+                  No users found
+                </td>
+              </tr>
+            )}
+            {filtered.map((user, idx) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                idx={idx}
+                onEdit={() => { setEditingUser(user); setShowNewUser(false); }}
+                onDelete={async () => {
+                  try {
+                    await axios.delete(`${API}/api/admin/users/${user.id}`, { headers: authHeaders });
+                    onRefresh();
+                    toast.success(`Deleted ${user.email}`);
+                  } catch (e) {
+                    toast.error(e?.response?.data?.detail || 'Failed to delete user');
+                  }
+                }}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create / Edit user modal */}
+      <AnimatePresence>
+        {(editingUser || showNewUser) && (
+          <UserModal
+            user={editingUser}
+            authHeaders={authHeaders}
+            onClose={() => { setEditingUser(null); setShowNewUser(false); }}
+            onSaved={() => { setEditingUser(null); setShowNewUser(false); onRefresh(); }}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function UserRow({ user, idx, onEdit, onDelete }) {
+  const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString() : '—';
+  return (
+    <motion.tr
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: idx * 0.03 }}
+      className="hover:bg-white/2 transition-colors"
+      style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+      data-testid={`user-row-${user.id}`}
+    >
+      <td className="px-4 py-3">
+        <span className="font-body text-sm text-gray-200">{user.name}</span>
+      </td>
+      <td className="px-4 py-3">
+        <span className="font-mono text-xs text-gray-400">{user.email}</span>
+      </td>
+      <td className="px-4 py-3">
+        <span className="font-mono text-xs text-gray-600">{createdDate}</span>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onEdit}
+            data-testid={`edit-user-${user.id}`}
+            className="p-1.5 rounded hover:bg-cyan-500/10 transition-colors"
+            title="Edit user"
+          >
+            <Pencil size={13} color="#00F0FF" />
+          </button>
+          <button
+            onClick={onDelete}
+            data-testid={`delete-user-${user.id}`}
+            className="p-1.5 rounded hover:bg-red-500/10 transition-colors"
+            title="Delete user"
+          >
+            <Trash2 size={13} color="#FF003C80" />
+          </button>
+        </div>
+      </td>
+    </motion.tr>
+  );
+}
+
+// User create/edit modal
+function UserModal({ user, authHeaders, onClose, onSaved }) {
+  const isNew = !user;
+  const [form, setForm] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    password: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Name is required'); return; }
+    if (!form.email.trim()) { toast.error('Email is required'); return; }
+    if (isNew && !form.password) { toast.error('Password is required'); return; }
+    setSaving(true);
+    try {
+      if (isNew) {
+        await axios.post(`${API}/api/admin/users`, {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          password: form.password,
+        }, { headers: authHeaders });
+        toast.success('User created');
+      } else {
+        const payload = {};
+        if (form.name.trim() !== user.name) payload.name = form.name.trim();
+        if (form.email.trim() !== user.email) payload.email = form.email.trim();
+        if (form.password) payload.password = form.password;
+        if (Object.keys(payload).length === 0) { toast('No changes to save'); onClose(); return; }
+        await axios.put(`${API}/api/admin/users/${user.id}`, payload, { headers: authHeaders });
+        toast.success('User updated');
+      }
+      onSaved();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Failed to save user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+      data-testid="user-modal"
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95 }}
+        className="w-full max-w-md rounded-xl p-6 corner-accent"
+        style={{ background: '#0a0a0a', border: '1px solid rgba(0,240,255,0.15)' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-heading text-sm text-white uppercase tracking-widest">
+            {isNew ? 'New User' : `Edit User`}
+          </h2>
+          <button onClick={onClose} className="p-1 hover:opacity-70" data-testid="close-user-modal">
+            <X size={16} color="#9CA3AF" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Name */}
+          <div>
+            <label className="font-heading text-xs text-gray-500 uppercase tracking-wider block mb-2">Name</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg font-mono text-sm border focus:outline-none transition-colors"
+              style={{ background: '#0d0d14', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)', WebkitTextFillColor: '#e2e8f0' }}
+              placeholder="Full name"
+              data-testid="user-name-input"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="font-heading text-xs text-gray-500 uppercase tracking-wider block mb-2">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg font-mono text-sm border focus:outline-none transition-colors"
+              style={{ background: '#0d0d14', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)', WebkitTextFillColor: '#e2e8f0' }}
+              placeholder="user@example.com"
+              data-testid="user-email-input"
+            />
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="font-heading text-xs text-gray-500 uppercase tracking-wider block mb-2">
+              {isNew ? 'Password' : 'New Password'}{!isNew && <span className="normal-case font-mono ml-2 text-gray-600">(leave blank to keep current)</span>}
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                className="w-full px-3 py-2.5 pr-10 rounded-lg font-mono text-sm border focus:outline-none transition-colors"
+                style={{ background: '#0d0d14', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)', WebkitTextFillColor: '#e2e8f0' }}
+                placeholder={isNew ? 'Min 8 characters' : '••••••••'}
+                data-testid="user-password-input"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70"
+              >
+                {showPassword ? <EyeOff size={14} color="#6B7280" /> : <Eye size={14} color="#6B7280" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <motion.button
+              onClick={handleSave}
+              disabled={saving}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              data-testid="save-user-btn"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-heading text-xs uppercase tracking-wider"
+              style={{ background: 'rgba(0,255,148,0.1)', color: '#00FF94', border: '1px solid rgba(0,255,148,0.3)' }}
+            >
+              {saving ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" /> : <Save size={12} />}
+              {isNew ? 'Create User' : 'Save Changes'}
+            </motion.button>
+            <button
+              onClick={onClose}
+              data-testid="cancel-user-modal-btn"
               className="px-5 py-2.5 rounded-lg font-mono text-xs text-gray-500 hover:text-gray-300 transition-colors"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
             >

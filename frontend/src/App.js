@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
-import { Shield, Cpu, Activity, ChevronRight, ExternalLink, AlertTriangle, Settings, Sun, Moon } from 'lucide-react';
+import { Shield, Cpu, Activity, ChevronRight, ExternalLink, AlertTriangle, Settings, Sun, Moon, LogOut, User } from 'lucide-react';
 import { VoiceOrb } from './components/VoiceOrb';
 import { TranscriptFeed } from './components/TranscriptFeed';
 import { TicketsPanel } from './components/TicketsPanel';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
 import { useTheme } from './context/ThemeContext';
+import { useAuth } from './context/AuthContext';
 import './App.css';
 
 const TABS = [
@@ -52,6 +53,7 @@ export default function App() {
   const [isIframe, setIsIframe] = useState(false);
   const [agentName, setAgentName] = useState('REX');
   const { isDark, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     try { setIsIframe(window !== window.top); } catch (e) { setIsIframe(true); }
@@ -178,7 +180,7 @@ export default function App() {
             </div>
           </motion.div>
 
-          {/* Right side: status + theme toggle + admin */}
+          {/* Right side: status + theme toggle + admin + user */}
           <div className="ml-auto flex items-center gap-3">
             {/* Theme toggle button */}
             <motion.button
@@ -204,6 +206,30 @@ export default function App() {
               <Settings size={11} />
               Admin
             </a>
+
+            {/* User info + logout */}
+            {user && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+                  style={{ background: 'var(--primary-bg)', border: '1px solid var(--primary-border-faint)' }}>
+                  <User size={11} style={{ color: 'var(--primary)' }} />
+                  <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {user.name}
+                  </span>
+                </div>
+                <motion.button
+                  onClick={logout}
+                  data-testid="logout-btn"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+                  style={{ background: 'rgba(255,0,60,0.08)', border: '1px solid rgba(255,0,60,0.25)' }}
+                  whileTap={{ scale: 0.92 }}
+                  title="Sign out"
+                >
+                  <LogOut size={13} style={{ color: '#FF003C' }} />
+                </motion.button>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <div
                 className="w-2 h-2 rounded-full"
