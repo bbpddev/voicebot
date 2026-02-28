@@ -34,6 +34,7 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 ADMIN_NAME = os.environ.get("ADMIN_NAME", "Admin")
 XAI_REALTIME_URL = "wss://api.x.ai/v1/realtime"
+OPENAI_REALTIME_BASE_URL = "wss://api.openai.com/v1/realtime"
 
 # OpenAI async client (replaces emergentintegrations)
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
@@ -99,6 +100,8 @@ class AgentConfig(BaseModel):
     system_prompt: str
     voice: str = "Rex"
     agent_name: str = "Rex"
+    api_provider: str = "xai"  # "xai" or "openai"
+    openai_model: str = "gpt-realtime-1.5"
 
 
 class UserCreate(BaseModel):
@@ -253,8 +256,16 @@ async def get_agent_config() -> dict:
             "system_prompt": doc.get("system_prompt", DEFAULT_SYSTEM_PROMPT),
             "voice": doc.get("voice", "Rex"),
             "agent_name": doc.get("agent_name", "Rex"),
+            "api_provider": doc.get("api_provider", "xai"),
+            "openai_model": doc.get("openai_model", "gpt-realtime-1.5"),
         }
-    return {"system_prompt": DEFAULT_SYSTEM_PROMPT, "voice": "Rex", "agent_name": "Rex"}
+    return {
+        "system_prompt": DEFAULT_SYSTEM_PROMPT,
+        "voice": "Rex",
+        "agent_name": "Rex",
+        "api_provider": "xai",
+        "openai_model": "gpt-realtime-1.5",
+    }
 
 
 # --- Function Tools ---
@@ -604,17 +615,42 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def voice_agent_ws(websocket: WebSocket):
     await websocket.accept()
 
-    xai_headers = {"Authorization": f"Bearer {XAI_API_KEY}"}
-
     try:
-        async with websockets.connect(
-            XAI_REALTIME_URL, ssl=True, additional_headers=xai_headers, ping_interval=20
-        ) as xai_ws:
+        # Fetch latest config from DB
+        cfg = await get_agent_config()
+        api_provider = cfg.get("api_provider", "xai")
 
-            # Fetch latest config from DB
-            cfg = await get_agent_config()
-
-            # Configure session
+        # Build provider-specific connection params and session config
+        if api_provider == "openai":
+            if not OPENAI_API_KEY:
+                await websocket.send_json({"type": "error", "message": "OpenAI API key is not configured."})
+                return
+            openai_model = cfg.get("openai_model", "gpt-realtime-1.5")
+            ws_url = f"{OPENAI_REALTIME_BASE_URL}?model={openai_model}"
+            ws_headers = {
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "OpenAI-Beta": "realtime=v1",
+            }
+            session_config = {
+                "type": "session.update",
+                "session": {
+                    "modalities": ["text", "audio"],
+                    "voice": cfg["voice"],
+                    "instructions": cfg["system_prompt"],
+                    "input_audio_format": "pcm16",
+                    "output_audio_format": "pcm16",
+                    "input_audio_transcription": {"model": "whisper-1"},
+                    "turn_detection": {"type": "server_vad"},
+                    "tools": TOOLS,
+                    "tool_choice": "auto",
+                },
+            }
+        else:  # xai
+            if not XAI_API_KEY:
+                await websocket.send_json({"type": "error", "message": "xAI API key is not configured."})
+                return
+            ws_url = XAI_REALTIME_URL
+            ws_headers = {"Authorization": f"Bearer {XAI_API_KEY}"}
             session_config = {
                 "type": "session.update",
                 "session": {
@@ -628,24 +664,42 @@ async def voice_agent_ws(websocket: WebSocket):
                     "tools": TOOLS,
                 },
             }
-            await xai_ws.send(json.dumps(session_config))
 
-            async def browser_to_xai():
+        async with websockets.connect(
+            ws_url, ssl=True, additional_headers=ws_headers, ping_interval=20
+        ) as provider_ws:
+
+            await provider_ws.send(json.dumps(session_config))
+
+            async def browser_to_provider():
                 try:
                     while True:
                         raw = await websocket.receive_text()
                         msg = json.loads(raw)
                         allowed = {"input_audio_buffer.append", "input_audio_buffer.clear", "conversation.item.create", "response.create"}
                         if msg.get("type") in allowed:
-                            await xai_ws.send(json.dumps(msg))
+                            await provider_ws.send(json.dumps(msg))
                 except (WebSocketDisconnect, Exception):
                     pass
 
-            async def xai_to_browser():
+            async def provider_to_browser():
                 try:
-                    async for raw_msg in xai_ws:
+                    async for raw_msg in provider_ws:
                         event = json.loads(raw_msg)
                         etype = event.get("type", "")
+
+                        # Normalise OpenAI audio event names to match the xAI names
+                        # that the frontend already understands.
+                        if api_provider == "openai":
+                            if etype == "response.audio.delta":
+                                event["type"] = "response.output_audio.delta"
+                                etype = "response.output_audio.delta"
+                            elif etype == "response.audio_transcript.delta":
+                                event["type"] = "response.output_audio_transcript.delta"
+                                etype = "response.output_audio_transcript.delta"
+                            elif etype == "response.audio_transcript.done":
+                                event["type"] = "response.output_audio_transcript.done"
+                                etype = "response.output_audio_transcript.done"
 
                         if etype == "response.function_call_arguments.done":
                             func_name = event.get("name", "")
@@ -662,7 +716,7 @@ async def voice_agent_ws(websocket: WebSocket):
                                 pass
 
                             # Execute function — catch errors so one bad call never
-                            # crashes the whole xai_to_browser task.
+                            # crashes the whole provider_to_browser task.
                             handler = FUNCTION_HANDLERS.get(func_name)
                             try:
                                 if handler:
@@ -672,9 +726,9 @@ async def voice_agent_ws(websocket: WebSocket):
                             except Exception as e:
                                 result = {"success": False, "error": str(e), "message": f"Function failed: {str(e)}"}
 
-                            # Send result back to xAI
+                            # Send result back to provider
                             try:
-                                await xai_ws.send(json.dumps({
+                                await provider_ws.send(json.dumps({
                                     "type": "conversation.item.create",
                                     "item": {
                                         "type": "function_call_output",
@@ -682,7 +736,7 @@ async def voice_agent_ws(websocket: WebSocket):
                                         "output": json.dumps(result),
                                     },
                                 }))
-                                await xai_ws.send(json.dumps({"type": "response.create"}))
+                                await provider_ws.send(json.dumps({"type": "response.create"}))
                             except Exception:
                                 pass
 
@@ -697,12 +751,13 @@ async def voice_agent_ws(websocket: WebSocket):
                             except Exception:
                                 pass
                         else:
-                            await websocket.send_text(raw_msg)
+                            # Re-serialize so any translated event type is reflected
+                            await websocket.send_text(json.dumps(event))
                 except Exception:
                     pass
 
-            task1 = asyncio.create_task(browser_to_xai())
-            task2 = asyncio.create_task(xai_to_browser())
+            task1 = asyncio.create_task(browser_to_provider())
+            task2 = asyncio.create_task(provider_to_browser())
             done, pending = await asyncio.wait([task1, task2], return_when=asyncio.FIRST_COMPLETED)
             for t in pending:
                 t.cancel()
@@ -893,6 +948,8 @@ async def update_config(config: AgentConfig):
             "system_prompt": config.system_prompt,
             "voice": config.voice,
             "agent_name": config.agent_name,
+            "api_provider": config.api_provider,
+            "openai_model": config.openai_model,
             "updated_at": datetime.now(timezone.utc),
         }},
         upsert=True,
@@ -903,7 +960,14 @@ async def update_config(config: AgentConfig):
 @app.post("/api/admin/config/reset")
 async def reset_config():
     await config_col.delete_one({"key": "agent_config"})
-    return {"success": True, "system_prompt": DEFAULT_SYSTEM_PROMPT, "voice": "Rex", "agent_name": "Rex"}
+    return {
+        "success": True,
+        "system_prompt": DEFAULT_SYSTEM_PROMPT,
+        "voice": "Rex",
+        "agent_name": "Rex",
+        "api_provider": "xai",
+        "openai_model": "gpt-realtime-1.5",
+    }
 
 
 # --- REST: Admin User Management ---

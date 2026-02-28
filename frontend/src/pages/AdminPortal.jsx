@@ -9,12 +9,23 @@ import { Toaster, toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const VOICE_OPTIONS = [
+const XAI_VOICE_OPTIONS = [
   { value: 'Rex', label: 'Rex — Professional Male' },
   { value: 'Ara', label: 'Ara — Warm Female' },
   { value: 'Leo', label: 'Leo — Friendly Male' },
   { value: 'Eve', label: 'Eve — Clear Female' },
   { value: 'Sal', label: 'Sal — Calm Male' },
+];
+
+const OPENAI_VOICE_OPTIONS = [
+  { value: 'alloy', label: 'Alloy — Neutral' },
+  { value: 'ash', label: 'Ash — Confident Male' },
+  { value: 'ballad', label: 'Ballad — Warm Male' },
+  { value: 'coral', label: 'Coral — Warm Female' },
+  { value: 'echo', label: 'Echo — Deep Male' },
+  { value: 'sage', label: 'Sage — Wise Female' },
+  { value: 'shimmer', label: 'Shimmer — Clear Female' },
+  { value: 'verse', label: 'Verse — Expressive' },
 ];
 
 const CATEGORIES = ['network', 'software', 'hardware', 'access', 'email', 'general'];
@@ -77,6 +88,8 @@ export default function AdminPortal() {
         system_prompt: config.system_prompt,
         voice: config.voice,
         agent_name: config.agent_name,
+        api_provider: config.api_provider || 'xai',
+        openai_model: config.openai_model || 'gpt-realtime-1.5',
       });
       toast.success('Configuration saved — changes apply on next voice session', {
         style: { background: '#0a0a0a', border: '1px solid rgba(0,255,148,0.3)', color: '#00FF94' },
@@ -92,7 +105,14 @@ export default function AdminPortal() {
   const resetPrompt = async () => {
     try {
       const res = await axios.post(`${API}/api/admin/config/reset`);
-      setConfig(prev => ({ ...prev, system_prompt: res.data.system_prompt, voice: res.data.voice, agent_name: res.data.agent_name }));
+      setConfig(prev => ({
+        ...prev,
+        system_prompt: res.data.system_prompt,
+        voice: res.data.voice,
+        agent_name: res.data.agent_name,
+        api_provider: res.data.api_provider || 'xai',
+        openai_model: res.data.openai_model || 'gpt-realtime-1.5',
+      }));
       setPromptDirty(false);
       toast.success('Prompt reset to default');
     } catch (e) {
@@ -209,6 +229,15 @@ export default function AdminPortal() {
 // ---- Prompt Editor ----
 function PromptEditor({ config, setConfig, saving, dirty, setDirty, onSave, onReset }) {
   const charCount = config.system_prompt.length;
+  const provider = config.api_provider || 'xai';
+  const voiceOptions = provider === 'openai' ? OPENAI_VOICE_OPTIONS : XAI_VOICE_OPTIONS;
+
+  const handleProviderChange = (newProvider) => {
+    const defaultVoice = newProvider === 'openai' ? 'alloy' : 'Rex';
+    setConfig(p => ({ ...p, api_provider: newProvider, voice: defaultVoice }));
+    setDirty(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Info banner */}
@@ -216,8 +245,56 @@ function PromptEditor({ config, setConfig, saving, dirty, setDirty, onSave, onRe
         style={{ background: 'rgba(112,0,255,0.06)', border: '1px solid rgba(112,0,255,0.2)' }}>
         <Info size={14} color="#7000FF" className="mt-0.5 flex-shrink-0" />
         <p className="font-mono text-xs text-gray-400 leading-relaxed">
-          Changes to the system prompt and voice settings apply to the <strong className="text-white">next voice session</strong>. 
+          Changes to the system prompt and voice settings apply to the <strong className="text-white">next voice session</strong>.
           Use the system prompt to set the agent's name, scope, guardrails, company name, and behaviour.
+        </p>
+      </div>
+
+      {/* API Provider selector */}
+      <div className="glass-panel rounded-xl p-5">
+        <label className="font-heading text-xs text-gray-500 uppercase tracking-widest block mb-3">
+          Voice API Provider
+        </label>
+        <div className="flex gap-2">
+          {[
+            { value: 'xai', label: 'Grok (xAI)' },
+            { value: 'openai', label: 'OpenAI' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => handleProviderChange(opt.value)}
+              data-testid={`provider-${opt.value}`}
+              className="px-4 py-2 rounded-lg font-heading text-xs uppercase tracking-wider transition-all"
+              style={
+                provider === opt.value
+                  ? { background: 'rgba(0,255,148,0.1)', color: '#00FF94', border: '1px solid rgba(0,255,148,0.3)' }
+                  : { background: 'rgba(255,255,255,0.03)', color: '#6B7280', border: '1px solid rgba(255,255,255,0.08)' }
+              }
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {provider === 'openai' && (
+          <div className="mt-4">
+            <label className="font-heading text-xs text-gray-500 uppercase tracking-widest block mb-2">
+              OpenAI Model
+            </label>
+            <input
+              type="text"
+              value={config.openai_model || 'gpt-realtime-1.5'}
+              onChange={e => { setConfig(p => ({ ...p, openai_model: e.target.value })); setDirty(true); }}
+              className="w-full px-3 py-2.5 rounded-lg font-mono text-sm border focus:outline-none transition-colors"
+              style={{ background: '#0d0d14', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)', WebkitTextFillColor: '#e2e8f0' }}
+              placeholder="gpt-realtime-1.5"
+              data-testid="openai-model-input"
+            />
+          </div>
+        )}
+        <p className="font-mono text-xs text-gray-600 mt-2">
+          {provider === 'openai'
+            ? 'Uses OpenAI Realtime API — requires OPENAI_API_KEY'
+            : 'Uses xAI Grok Realtime API — requires XAI_API_KEY'}
         </p>
       </div>
 
@@ -258,12 +335,12 @@ function PromptEditor({ config, setConfig, saving, dirty, setDirty, onSave, onRe
             style={{ background: '#0d0d14', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)' }}
             data-testid="voice-select"
           >
-            {VOICE_OPTIONS.map(v => (
+            {voiceOptions.map(v => (
               <option key={v.value} value={v.value} style={{ background: '#0d0d14' }}>{v.label}</option>
             ))}
           </select>
           <p className="font-mono text-xs text-gray-600 mt-2">
-            xAI Grok voice personality
+            {provider === 'openai' ? 'OpenAI Realtime voice' : 'xAI Grok voice personality'}
           </p>
         </div>
       </div>
