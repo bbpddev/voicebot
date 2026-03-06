@@ -1,9 +1,11 @@
 import asyncio
 import base64
 import io
+import io as _io
 import json
 import os
 import re
+import struct
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any, Annotated, List, Optional
@@ -670,6 +672,86 @@ async def voice_agent_ws(websocket: WebSocket):
         ) as provider_ws:
 
             await provider_ws.send(json.dumps(session_config))
+
+            async def _transcribe_and_emit(chunks: list[bytes], item_id: str) -> None:
+                """
+                Wrap accumulated PCM16 @24kHz in a WAV envelope, send to gpt-4o-transcribe,
+                and forward the transcript to the browser as a standard
+                conversation.item.input_audio_transcription.completed event.
+                Non-blocking — errors are swallowed so the voice stream is never affected.
+                """
+                if not chunks or not openai_client:
+                    return
+                raw_pcm = b"".join(chunks)
+                if len(raw_pcm) < 3200:  # < ~67ms — too short to transcribe meaningfully
+                    return
+                try:
+                    # Wrap raw PCM16 @24kHz in a WAV container — required by all Whisper-family models
+                    sample_rate = 24000
+                    channels = 1
+                    bits_per_sample = 16
+                    data_size = len(raw_pcm)
+                    header = struct.pack(
+                        "<4sI4s4sIHHIIHH4sI",
+                        b"RIFF",
+                        36 + data_size,
+                        b"WAVE",
+                        b"fmt ",
+                        16,
+                        1,           # PCM format
+                        channels,
+                        sample_rate,
+                        sample_rate * channels * bits_per_sample // 8,
+                        channels * bits_per_sample // 8,
+                        bits_per_sample,
+                        b"data",
+                        data_size,
+                    )
+                    wav_file = _io.BytesIO(header + raw_pcm)
+                    wav_file.name = "audio.wav"
+
+                    transcription = await openai_client.audio.transcriptions.create(
+                        model="gpt-4o-transcribe",
+                        file=wav_file,
+                        language="en",
+                        prompt=(
+                            "IT Service Desk conversation. Technical terms include: "
+                            "VPN, PingMFA, Exchange Online, TKT, INC, KB, "
+                            "Jira, Active Directory, MFA, SSO, Azure AD, "
+                            "Global Protect, PingMFA, TKT-001, INC-0091."
+                        ),
+                        response_format="text",
+                    )
+
+                    # gpt-4o-transcribe with response_format="text" returns the string directly
+                    text = (transcription if isinstance(transcription, str) else getattr(transcription, "text", "") or "").strip()
+
+                    if text:
+                        await websocket.send_json({
+                            "type": "conversation.item.input_audio_transcription.completed",
+                            "item_id": item_id,
+                            "transcript": text,
+                        })
+
+                except Exception as exc:
+                    # Fallback to whisper-1 if gpt-4o-transcribe fails (e.g. model unavailable)
+                    print(f"[gpt-4o-transcribe] error: {exc} — falling back to whisper-1")
+                    try:
+                        wav_file.seek(0)
+                        fallback = await openai_client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=wav_file,
+                            language="en",
+                        )
+                        text = (getattr(fallback, "text", "") or "").strip()
+                        if text:
+                            await websocket.send_json({
+                                "type": "conversation.item.input_audio_transcription.completed",
+                                "item_id": item_id,
+                                "transcript": text,
+                            })
+                    except Exception as fallback_exc:
+                        print(f"[whisper-1 fallback] error: {fallback_exc}")
 
             async def browser_to_provider():
                 try:
