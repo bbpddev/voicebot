@@ -51,7 +51,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('tickets');
   const [ticketRefresh, setTicketRefresh] = useState(0);
   const [isIframe, setIsIframe] = useState(false);
-  const [agentName, setAgentName] = useState('REX');
+  const [agentName, setAgentName] = useState('ChatIt');
   const { isDark, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
 
