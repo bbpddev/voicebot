@@ -59,6 +59,7 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   const workletRef = useRef(null);
   const workletBlobRef = useRef(null);
   const nextPlayTimeRef = useRef(0);
+  const activeSourcesRef = useRef([]); // tracks in-flight AudioBufferSourceNodes
   const aiTextRef = useRef('');
   const statusRef = useRef('idle');
   // Auto-reconnect refs
@@ -116,6 +117,15 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     ws.send(JSON.stringify({ type: 'response.create' }));
   }
 
+  // Stop all in-flight audio sources and reset the playback clock.
+  const stopAllAudio = useCallback(() => {
+    activeSourcesRef.current.forEach(({ source }) => {
+      try { source.stop(); } catch (e) {}
+    });
+    activeSourcesRef.current = [];
+    nextPlayTimeRef.current = 0;
+  }, []);
+
   const playAudioChunk = useCallback((b64Audio) => {
     if (!playbackCtxRef.current) return;
     try {
@@ -131,6 +141,11 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
       const startTime = Math.max(now + 0.02, nextPlayTimeRef.current);
       source.start(startTime);
       nextPlayTimeRef.current = startTime + buffer.duration;
+      // Track source so it can be cancelled on interruption or new response
+      activeSourcesRef.current.push({ source });
+      source.onended = () => {
+        activeSourcesRef.current = activeSourcesRef.current.filter(s => s.source !== source);
+      };
     } catch (e) {
       // ignore playback errors
     }
@@ -223,8 +238,8 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         break;
       case 'input_audio_buffer.speech_started':
         if (statusRef.current === 'speaking') {
-          // User interrupted
-          nextPlayTimeRef.current = 0;
+          // User interrupted — stop any audio still scheduled/playing
+          stopAllAudio();
         }
         updateStatus('listening');
         break;
@@ -232,6 +247,8 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         updateStatus('processing');
         break;
       case 'response.created':
+        // Cancel any leftover audio from the previous response before starting the new one
+        stopAllAudio();
         updateStatus('speaking');
         aiTextRef.current = '';
         setCurrentAiText('');
@@ -353,6 +370,13 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   };
 
   const stopMicCapture = () => {
+    // Stop any audio still scheduled before tearing down the context
+    activeSourcesRef.current.forEach(({ source }) => {
+      try { source.stop(); } catch (e) {}
+    });
+    activeSourcesRef.current = [];
+    nextPlayTimeRef.current = 0;
+
     if (workletRef.current) {
       try { workletRef.current.disconnect(); } catch (e) {}
       workletRef.current = null;
@@ -373,7 +397,6 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
       try { playbackCtxRef.current.close(); } catch (e) {}
       playbackCtxRef.current = null;
     }
-    nextPlayTimeRef.current = 0;
   };
 
   const disconnect = useCallback(() => {
