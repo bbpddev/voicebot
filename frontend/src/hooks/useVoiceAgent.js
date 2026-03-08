@@ -273,6 +273,10 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         aiTextRef.current = '';
         setCurrentAiText('');
         updateStatus('active');
+        // Discard any mic audio captured while the agent was speaking to prevent echo
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+        }
         break;
       case 'conversation.item.input_audio_transcription.completed':
         if (event.transcript) {
@@ -319,6 +323,10 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
           setCurrentAiText('');
         }
         if (statusRef.current !== 'idle') updateStatus('active');
+        // Discard any mic audio captured while the agent was speaking to prevent echo
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+        }
         break;
       case 'error':
         setError(event.message || 'An error occurred');
@@ -350,6 +358,8 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
 
       worklet.port.onmessage = (e) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        // Suppress mic input while the agent is speaking to prevent echo/false transcription
+        if (statusRef.current === 'speaking') return;
         const b64 = float32ToInt16Base64(e.data);
         wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: b64 }));
       };
