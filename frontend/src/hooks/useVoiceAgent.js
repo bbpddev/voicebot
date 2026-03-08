@@ -45,6 +45,17 @@ function base64ToFloat32(b64) {
   return float32;
 }
 
+// Returns true when userText looks like an echo of agentText (agent voice through mic).
+// Checks whether ≥70% of meaningful words in the user transcript appear in the agent text.
+function isEchoOf(userText, agentText) {
+  if (!agentText) return false;
+  const words = userText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  if (words.length === 0) return false;
+  const agentLower = agentText.toLowerCase();
+  const matched = words.filter(w => agentLower.includes(w)).length;
+  return matched / words.length >= 0.7;
+}
+
 export function useVoiceAgent({ onTicketsChange } = {}) {
   const [status, setStatus] = useState('idle');
   const [transcript, setTranscript] = useState([]);
@@ -65,6 +76,11 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   // Auto-reconnect refs
   const shouldAutoReconnectRef = useRef(false);
   const preserveTranscriptRef = useRef(false);
+  // Interrupt / echo-detection refs
+  const speechStartedDuringSpeakingRef = useRef(false);
+  const lastAgentTextRef = useRef('');
+  const interruptTimerRef = useRef(null);   // debounce timer for interrupt
+  const pendingInterruptRef = useRef(false); // true while debounce is in-flight
   // Conversation memory refs
   const transcriptRef = useRef([]);       // mirrors transcript state for use in callbacks
   const isReconnectingRef = useRef(false); // true when reconnecting with history to restore
@@ -241,13 +257,35 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         break;
       case 'input_audio_buffer.speech_started':
         if (statusRef.current === 'speaking') {
-          // User interrupted — stop any audio still scheduled/playing
-          stopAllAudio();
+          // Debounce: wait 300ms before stopping agent audio. If the speech
+          // was just echo it will fire speech_stopped quickly and we cancel.
+          // Real user speech persists past the debounce and triggers the
+          // interrupt for real.
+          lastAgentTextRef.current = aiTextRef.current;
+          pendingInterruptRef.current = true;
+          clearTimeout(interruptTimerRef.current);
+          interruptTimerRef.current = setTimeout(() => {
+            if (pendingInterruptRef.current) {
+              pendingInterruptRef.current = false;
+              speechStartedDuringSpeakingRef.current = true;
+              stopAllAudio();
+              updateStatus('listening');
+            }
+          }, 300);
+        } else {
+          speechStartedDuringSpeakingRef.current = false;
+          updateStatus('listening');
         }
-        updateStatus('listening');
         break;
       case 'input_audio_buffer.speech_stopped':
-        updateStatus('processing');
+        if (pendingInterruptRef.current) {
+          // Speech ended within the debounce window — almost certainly echo.
+          // Cancel the pending interrupt so the agent keeps talking.
+          pendingInterruptRef.current = false;
+          clearTimeout(interruptTimerRef.current);
+        } else {
+          updateStatus('processing');
+        }
         break;
       case 'response.created':
         // Cancel any leftover audio from the previous response before starting the new one
@@ -273,15 +311,26 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         aiTextRef.current = '';
         setCurrentAiText('');
         updateStatus('active');
+        // Discard any mic audio captured while the agent was speaking to prevent echo
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+        }
         break;
-      case 'conversation.item.input_audio_transcription.completed':
-        if (event.transcript) {
+      case 'conversation.item.input_audio_transcription.completed': {
+        const userText = event.transcript?.trim();
+        if (userText) {
+          // If speech started while the agent was talking, check whether this
+          // transcription is the agent's own voice echoed back through the mic.
+          const wasInterrupt = speechStartedDuringSpeakingRef.current;
+          speechStartedDuringSpeakingRef.current = false;
+          if (wasInterrupt && isEchoOf(userText, lastAgentTextRef.current)) break;
           setTranscript(prev => [
             ...prev,
-            { role: 'user', text: event.transcript, time: Date.now() },
+            { role: 'user', text: userText, time: Date.now() },
           ]);
         }
         break;
+      }
       case 'function.started':
         // Add a "thinking" function entry to the transcript
         setTranscript(prev => [
@@ -319,6 +368,10 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
           setCurrentAiText('');
         }
         if (statusRef.current !== 'idle') updateStatus('active');
+        // Discard any mic audio captured while the agent was speaking to prevent echo
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+        }
         break;
       case 'error':
         setError(event.message || 'An error occurred');
@@ -402,9 +455,21 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     }
   };
 
+  const interrupt = useCallback(() => {
+    clearTimeout(interruptTimerRef.current);
+    pendingInterruptRef.current = false;
+    stopAllAudio();
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+    }
+    updateStatus('active');
+  }, [stopAllAudio, updateStatus]);
+
   const disconnect = useCallback(() => {
     shouldAutoReconnectRef.current = false; // User explicitly ended — no auto-reconnect
     preserveTranscriptRef.current = false;
+    clearTimeout(interruptTimerRef.current);
+    pendingInterruptRef.current = false;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -423,5 +488,6 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     error,
     connect,
     disconnect,
+    interrupt,
   };
 }

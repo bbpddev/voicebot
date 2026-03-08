@@ -77,7 +77,7 @@ export default function App() {
     });
   }, []);
 
-  const { status, transcript, currentAiText, lastFunction, error, connect, disconnect } = useVoiceAgent({ onTicketsChange });
+  const { status, transcript, currentAiText, lastFunction, error, connect, disconnect, interrupt } = useVoiceAgent({ onTicketsChange });
 
   // Show error toast (except iframe-specific error which is handled inline)
   useEffect(() => {
@@ -327,6 +327,7 @@ export default function App() {
               status={status}
               onConnect={connect}
               onDisconnect={disconnect}
+              onInterrupt={interrupt}
               isIframe={isIframe}
             />
 
