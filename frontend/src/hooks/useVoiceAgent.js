@@ -45,6 +45,17 @@ function base64ToFloat32(b64) {
   return float32;
 }
 
+// Returns true when userText looks like an echo of agentText (agent voice through mic).
+// Checks whether ≥70% of meaningful words in the user transcript appear in the agent text.
+function isEchoOf(userText, agentText) {
+  if (!agentText) return false;
+  const words = userText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  if (words.length === 0) return false;
+  const agentLower = agentText.toLowerCase();
+  const matched = words.filter(w => agentLower.includes(w)).length;
+  return matched / words.length >= 0.7;
+}
+
 export function useVoiceAgent({ onTicketsChange } = {}) {
   const [status, setStatus] = useState('idle');
   const [transcript, setTranscript] = useState([]);
@@ -65,6 +76,9 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   // Auto-reconnect refs
   const shouldAutoReconnectRef = useRef(false);
   const preserveTranscriptRef = useRef(false);
+  // Interrupt / echo-detection refs
+  const speechStartedDuringSpeakingRef = useRef(false);
+  const lastAgentTextRef = useRef('');
   // Conversation memory refs
   const transcriptRef = useRef([]);       // mirrors transcript state for use in callbacks
   const isReconnectingRef = useRef(false); // true when reconnecting with history to restore
@@ -241,8 +255,13 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         break;
       case 'input_audio_buffer.speech_started':
         if (statusRef.current === 'speaking') {
-          // User interrupted — stop any audio still scheduled/playing
+          // User spoke over the agent — stop playback immediately
           stopAllAudio();
+          // Snapshot agent text so we can detect echo in the incoming transcription
+          speechStartedDuringSpeakingRef.current = true;
+          lastAgentTextRef.current = aiTextRef.current;
+        } else {
+          speechStartedDuringSpeakingRef.current = false;
         }
         updateStatus('listening');
         break;
@@ -278,14 +297,21 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
           wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
         }
         break;
-      case 'conversation.item.input_audio_transcription.completed':
-        if (event.transcript) {
+      case 'conversation.item.input_audio_transcription.completed': {
+        const userText = event.transcript?.trim();
+        if (userText) {
+          // If speech started while the agent was talking, check whether this
+          // transcription is the agent's own voice echoed back through the mic.
+          const wasInterrupt = speechStartedDuringSpeakingRef.current;
+          speechStartedDuringSpeakingRef.current = false;
+          if (wasInterrupt && isEchoOf(userText, lastAgentTextRef.current)) break;
           setTranscript(prev => [
             ...prev,
-            { role: 'user', text: event.transcript, time: Date.now() },
+            { role: 'user', text: userText, time: Date.now() },
           ]);
         }
         break;
+      }
       case 'function.started':
         // Add a "thinking" function entry to the transcript
         setTranscript(prev => [
@@ -358,8 +384,6 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
 
       worklet.port.onmessage = (e) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-        // Suppress mic input while the agent is speaking to prevent echo/false transcription
-        if (statusRef.current === 'speaking') return;
         const b64 = float32ToInt16Base64(e.data);
         wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: b64 }));
       };
