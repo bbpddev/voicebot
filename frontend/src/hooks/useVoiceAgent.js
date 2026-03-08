@@ -412,6 +412,14 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     }
   };
 
+  const interrupt = useCallback(() => {
+    stopAllAudio();
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+    }
+    updateStatus('active');
+  }, [stopAllAudio, updateStatus]);
+
   const disconnect = useCallback(() => {
     shouldAutoReconnectRef.current = false; // User explicitly ended — no auto-reconnect
     preserveTranscriptRef.current = false;
@@ -433,5 +441,6 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
     error,
     connect,
     disconnect,
+    interrupt,
   };
 }

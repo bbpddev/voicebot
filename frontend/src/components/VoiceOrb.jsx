@@ -62,7 +62,7 @@ const STATUS_CONFIG = {
   },
 };
 
-export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
+export function VoiceOrb({ status, onConnect, onDisconnect, onInterrupt, isIframe }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.idle;
   const Icon = cfg.icon;
   const isActive = status !== 'idle' && status !== 'error';
@@ -71,6 +71,8 @@ export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
   const handleClick = () => {
     if (status === 'idle' || status === 'error') {
       onConnect();
+    } else if (status === 'speaking') {
+      onInterrupt?.();
     } else if (isActive && status !== 'connecting' && status !== 'processing') {
       onDisconnect();
     }
@@ -101,7 +103,7 @@ export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
               ? { scale: [1, 1.03, 1], transition: { duration: 0.5, repeat: Infinity } }
               : { scale: [1, 1.03, 1], transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' } }
           }
-          title={isActive ? 'Click to disconnect' : 'Click to connect'}
+          title={status === 'speaking' ? 'Click to interrupt' : isActive ? 'Click to disconnect' : 'Click to connect'}
         >
           {/* Inner gradient layer */}
           <div
@@ -172,7 +174,7 @@ export function VoiceOrb({ status, onConnect, onDisconnect, isIframe }) {
           : status === 'listening'
           ? 'Voice detected — processing...'
           : status === 'speaking'
-          ? 'Agent responding — stay on the line...'
+          ? 'Agent responding — click orb to interrupt'
           : status === 'processing'
           ? 'Executing request...'
           : ''}
