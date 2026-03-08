@@ -134,9 +134,12 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
       const float32 = base64ToFloat32(b64Audio);
       const buffer = ctx.createBuffer(1, float32.length, SAMPLE_RATE);
       buffer.copyToChannel(float32, 0);
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = 1.0;
+      gainNode.connect(ctx.destination);
       const source = ctx.createBufferSource();
       source.buffer = buffer;
-      source.connect(ctx.destination);
+      source.connect(gainNode);
       const now = ctx.currentTime;
       const startTime = Math.max(now + 0.02, nextPlayTimeRef.current);
       source.start(startTime);
