@@ -79,6 +79,8 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   // Interrupt / echo-detection refs
   const speechStartedDuringSpeakingRef = useRef(false);
   const lastAgentTextRef = useRef('');
+  const interruptTimerRef = useRef(null);   // debounce timer for interrupt
+  const pendingInterruptRef = useRef(false); // true while debounce is in-flight
   // Conversation memory refs
   const transcriptRef = useRef([]);       // mirrors transcript state for use in callbacks
   const isReconnectingRef = useRef(false); // true when reconnecting with history to restore
@@ -255,18 +257,35 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         break;
       case 'input_audio_buffer.speech_started':
         if (statusRef.current === 'speaking') {
-          // User spoke over the agent — stop playback immediately
-          stopAllAudio();
-          // Snapshot agent text so we can detect echo in the incoming transcription
-          speechStartedDuringSpeakingRef.current = true;
+          // Debounce: wait 300ms before stopping agent audio. If the speech
+          // was just echo it will fire speech_stopped quickly and we cancel.
+          // Real user speech persists past the debounce and triggers the
+          // interrupt for real.
           lastAgentTextRef.current = aiTextRef.current;
+          pendingInterruptRef.current = true;
+          clearTimeout(interruptTimerRef.current);
+          interruptTimerRef.current = setTimeout(() => {
+            if (pendingInterruptRef.current) {
+              pendingInterruptRef.current = false;
+              speechStartedDuringSpeakingRef.current = true;
+              stopAllAudio();
+              updateStatus('listening');
+            }
+          }, 300);
         } else {
           speechStartedDuringSpeakingRef.current = false;
+          updateStatus('listening');
         }
-        updateStatus('listening');
         break;
       case 'input_audio_buffer.speech_stopped':
-        updateStatus('processing');
+        if (pendingInterruptRef.current) {
+          // Speech ended within the debounce window — almost certainly echo.
+          // Cancel the pending interrupt so the agent keeps talking.
+          pendingInterruptRef.current = false;
+          clearTimeout(interruptTimerRef.current);
+        } else {
+          updateStatus('processing');
+        }
         break;
       case 'response.created':
         // Cancel any leftover audio from the previous response before starting the new one
@@ -437,6 +456,8 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   };
 
   const interrupt = useCallback(() => {
+    clearTimeout(interruptTimerRef.current);
+    pendingInterruptRef.current = false;
     stopAllAudio();
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
@@ -447,6 +468,8 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
   const disconnect = useCallback(() => {
     shouldAutoReconnectRef.current = false; // User explicitly ended — no auto-reconnect
     preserveTranscriptRef.current = false;
+    clearTimeout(interruptTimerRef.current);
+    pendingInterruptRef.current = false;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
