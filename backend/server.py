@@ -44,7 +44,8 @@ openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 # --- Auth Config ---
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me-in-production-use-a-strong-random-secret")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_DAYS = 1
+REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=False)
@@ -119,7 +120,12 @@ class UserLogin(BaseModel):
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class UserAdminCreate(BaseModel):
@@ -149,6 +155,15 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     to_encode["exp"] = expire
+    to_encode["type"] = "access"
+    return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode["exp"] = expire
+    to_encode["type"] = "refresh"
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -160,6 +175,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user_id: str = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
+        if payload.get("type") == "refresh":
+            raise HTTPException(status_code=401, detail="Refresh token cannot be used as access token")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     user = await users_col.find_one({"_id": ObjectId(user_id)})
@@ -598,8 +615,29 @@ async def login(user_data: UserLogin):
     user = await users_col.find_one({"email": user_data.email.lower().strip()})
     if not user or not verify_password(user_data.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    token = create_access_token({"sub": str(user["_id"])})
-    return Token(access_token=token, token_type="bearer")
+    user_id = str(user["_id"])
+    access_token = create_access_token({"sub": user_id})
+    refresh_token = create_refresh_token({"sub": user_id})
+    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+
+
+@app.post("/api/auth/refresh", response_model=Token)
+async def refresh_token(body: RefreshRequest):
+    try:
+        payload = jwt.decode(body.refresh_token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        user_id: str = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    user = await users_col.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    new_access_token = create_access_token({"sub": user_id})
+    new_refresh_token = create_refresh_token({"sub": user_id})
+    return Token(access_token=new_access_token, refresh_token=new_refresh_token, token_type="bearer")
 
 
 @app.get("/api/auth/me")
