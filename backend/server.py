@@ -35,6 +35,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 ADMIN_NAME = os.environ.get("ADMIN_NAME", "Admin")
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "")
 XAI_REALTIME_URL = "wss://api.x.ai/v1/realtime"
 OPENAI_REALTIME_BASE_URL = "wss://api.openai.com/v1/realtime"
 
@@ -176,9 +177,19 @@ async def require_admin(current_user: dict = Depends(get_current_user)):
 
 # --- FastAPI ---
 app = FastAPI(title="IT Service Desk Voice Agent")
+
+# CORS: explicit origins required when allow_credentials=True (wildcard "*" is
+# rejected by browsers in that case).  Set ALLOWED_ORIGINS env var as a
+# comma-separated list to override.
+_default_origins = [
+    "https://realtimevoicebot.netlify.app",
+    "https://voicebot.aigenstudio.online",
+]
+_origins = [o.strip() for o in ALLOWED_ORIGINS.split(",") if o.strip()] if ALLOWED_ORIGINS else _default_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
