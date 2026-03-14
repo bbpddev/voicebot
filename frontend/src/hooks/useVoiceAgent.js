@@ -214,9 +214,17 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         updateStatus('error');
       };
 
-      ws.onclose = () => {
+      ws.onclose = (evt) => {
         const wasActive = statusRef.current !== 'idle' && statusRef.current !== 'error';
         stopMicCapture();
+
+        // Do not auto-reconnect if the server closed due to an auth/API-key error
+        if (evt.reason && (evt.reason.includes('invalid_api_key') || evt.reason.includes('unauthorized'))) {
+          shouldAutoReconnectRef.current = false;
+          setError('Your API key is invalid or expired. Please update it in Admin settings.');
+          updateStatus('error');
+          return;
+        }
 
         if (wasActive && shouldAutoReconnectRef.current) {
           // Unexpected session drop — auto-reconnect silently
@@ -374,6 +382,10 @@ export function useVoiceAgent({ onTicketsChange } = {}) {
         }
         break;
       case 'error':
+        // Stop auto-reconnect for authentication / API-key errors
+        if (event.code === 'invalid_api_key') {
+          shouldAutoReconnectRef.current = false;
+        }
         setError(event.message || 'An error occurred');
         updateStatus('error');
         break;

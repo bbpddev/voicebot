@@ -855,9 +855,26 @@ async def voice_agent_ws(websocket: WebSocket):
             for t in pending:
                 t.cancel()
 
-    except Exception as e:
+    except websockets.exceptions.InvalidStatusCode as e:
+        msg = "Failed to connect to the voice API. Please check your API key configuration."
         try:
-            await websocket.send_json({"type": "error", "message": str(e)})
+            await websocket.send_json({"type": "error", "message": msg, "code": "invalid_api_key"})
+        except Exception:
+            pass
+    except Exception as e:
+        err_str = str(e)
+        # Detect API-key / auth errors from the provider's WebSocket close frame
+        if "invalid_api_key" in err_str or "invalid api key" in err_str.lower() or "unauthorized" in err_str.lower():
+            msg = "Your API key is invalid or expired. Please update it in Admin settings."
+            code = "invalid_api_key"
+        else:
+            msg = err_str
+            code = None
+        try:
+            payload = {"type": "error", "message": msg}
+            if code:
+                payload["code"] = code
+            await websocket.send_json(payload)
         except Exception:
             pass
     finally:
