@@ -7,9 +7,12 @@ backend/__pycache__/
 **/*.pyo
 
 # Environment variables
+.env
 backend/.env
 frontend/.env
-.env
+*.env
+*.env.*
+!*.env.example
 
 # Build
 frontend/build/
@@ -27,47 +30,3 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
