@@ -183,13 +183,25 @@ app = FastAPI(title="IT Service Desk Voice Agent")
 # comma-separated list to override.
 _default_origins = [
     "https://realtimevoicebot.netlify.app",
+    "http://realtimevoicebot.netlify.app",
+    "https://www.realtimevoicebot.netlify.app",
     "https://voicebot.aigenstudio.online",
+    "http://voicebot.aigenstudio.online",
+    "https://www.voicebot.aigenstudio.online",
 ]
 _origins = [o.strip() for o in ALLOWED_ORIGINS.split(",") if o.strip()] if ALLOWED_ORIGINS else _default_origins
+
+# Regex covers Netlify deploy-preview URLs, branch deploys, and localhost dev
+_origin_regex = (
+    r"https?://([\w-]+--realtimevoicebot\.netlify\.app"
+    r"|[\w-]+\.aigenstudio\.online"
+    r"|localhost(:\d+)?)"
+)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
+    allow_origin_regex=_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
