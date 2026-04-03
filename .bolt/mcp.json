@@ -1,7 +1,11 @@
 {
   "mcpServers": {
-    "github": {
-      "enabled": true
+    "MongoDB": {
+      "command": "npx",
+      "args": ["-y", "mongodb-mcp-server@latest"],
+      "env": {
+        "MDB_MCP_CONNECTION_STRING": "YOUR_MONGO_URL_HERE"
+      }
     }
   }
 }
